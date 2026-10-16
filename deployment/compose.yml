@@ -1,0 +1,68 @@
+name: life-strong-release
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lifestrong_admin
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?Set a private database admin password}
+      POSTGRES_DB: lifestrong
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?Set a private runtime database password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-roles.sh:/docker-entrypoint-initdb.d/010-roles.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U lifestrong_admin -d lifestrong']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+  api:
+    image: life-strong-api:${RELEASE_TAG:-release-prep}
+    build: { context: .., dockerfile: backend/Dockerfile }
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      AUTH_MODE: owner
+      PUBLIC_ORIGIN: https://${PUBLIC_HOST:?Set your API hostname}
+      DATABASE_URL: postgres://lifestrong_app:${DB_APP_PASSWORD}@postgres:5432/lifestrong
+      LOG_REQUESTS: '1'
+    depends_on:
+      postgres: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+  tools:
+    profiles: [tools]
+    image: life-strong-api:${RELEASE_TAG:-release-prep}
+    environment:
+      DATABASE_URL: postgres://lifestrong_admin:${DB_ADMIN_PASSWORD}@postgres:5432/lifestrong
+      OWNER_EMAIL: ${OWNER_EMAIL:-}
+      OWNER_PASSWORD: ${OWNER_PASSWORD:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: [npm, run, migrate:built]
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

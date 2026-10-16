@@ -75,3 +75,17 @@ test('start operation IDs persist and refresh never erases queued data', () => {
   assert.equal(restored.getSnapshot().workouts.s1.queue.length,1);
   assert.deepEqual(emptyTimer(),{ deadline: null,paused: null,finished: false });
 });
+
+test('expired owner sign-in retains queue and resumes after reauthentication', async () => {
+  const disk = storage();let authorized = false;
+  const engine = new OfflineEngine(disk,async () => {
+    if (!authorized) throw Object.assign(new Error('Sign in again'),{ status: 401 });
+    return serverSet;
+  });
+  engine.cache(base(),form());engine.enqueue('s1',added());await engine.sync('s1');
+  assert.equal(engine.getSnapshot().workouts.s1.blocked,false);
+  assert.throws(() => engine.clearSynced(),/Synchronize/);
+  authorized=true;await engine.sync('s1');
+  assert.equal(engine.getSnapshot().workouts.s1.queue.length,0);
+  engine.clearSynced();assert.equal(Object.keys(engine.getSnapshot().workouts).length,0);
+});

@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set=app_password="$DB_APP_PASSWORD" -v ON_ERROR_STOP=1 <<'SQL'
+CREATE ROLE lifestrong_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'app_password';
+GRANT CONNECT ON DATABASE lifestrong TO lifestrong_app;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO lifestrong_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE lifestrong_admin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO lifestrong_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE lifestrong_admin IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO lifestrong_app;
+SQL

@@ -1,6 +1,6 @@
 # Life Strong
 
-General fitness tracker. Gates 1–5 are accepted for trusted local single-user use. Phase 5 progress, accessibility and reliability acceptance is complete. Public release remains blocked by the release checklist. Stack: Expo / React Native / TypeScript → Express REST API → PostgreSQL.
+General fitness tracker. Gates 1–5 are accepted for trusted local single-user use. Phase 5 progress, accessibility and reliability acceptance is complete. Private native release preparation is implemented; cloud setup, owner-mode phone acceptance, dependency review and signing remain open. See [private release runbook](docs/private-release-runbook.md). Stack: Expo / React Native / TypeScript → Express REST API → PostgreSQL.
 
 For the repeatable end-to-end regression sequence, follow [Phase 5 testing](docs/phase-5-testing.md) and review the [release checklist](docs/release-checklist.md). Earlier regression procedures remain in [Phase 4 testing](docs/phase-4-testing.md) and [Phase 3 testing](docs/phase-3-testing.md). API resources and metrics are documented in [API documentation](docs/phase-2-api.md).
 

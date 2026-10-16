@@ -1,6 +1,18 @@
 # Life Strong release readiness
 
-Phase 5 is a local single-user acceptance gate. No public deployment, App Store submission, multi-user rollout or authentication is implemented or authorized by this checklist. Gates 1–5 are user-accepted for trusted local single-user use as of October 16, 2026. Public-release blockers below remain open.
+Gates 1–5 are user-accepted for trusted local use. The selected release target is a native iPhone app for one private owner, with minimum ongoing hosting cost. Private ad hoc installation avoids a public App Store listing but requires paid Apple membership. No cloud resources, DNS changes or signing have been performed. See [private release runbook](private-release-runbook.md) and [hosting options](hosting-options.md).
+
+## Private release preparation implemented
+
+- [x] Local accepted-MVP baseline committed as `30ad053`.
+- [x] Migration 004 assigns existing records to one private owner; no public signup or multi-user support.
+- [x] Owner password hashing, expiring/revocable opaque sessions, login limits and production HTTPS/configuration guards.
+- [x] Native Keychain credential storage, authenticated API client, retained offline queue after expired authentication.
+- [x] Account export, guarded logout/cache clearing and account deletion; deletion tests use isolated fixtures.
+- [x] Compiled non-root API container, restricted PostgreSQL runtime role, internal database/API networking and Caddy TLS configuration.
+- [x] Sanitized request logs, request timeouts and prepared off-device backup script.
+- [x] Native build configuration rejects HTTP endpoints, example identifiers and disabled owner authentication.
+- [x] Automated owner lifecycle/database integration and hardened release-image smoke tests pass; iOS JavaScript export succeeds. This is not a signed native build.
 
 ## Evidence completed during Phase 5
 
@@ -19,20 +31,21 @@ Phase 5 is a local single-user acceptance gate. No public deployment, App Store 
 - [x] Recheck workout completion, offline recovery and a locked-screen local notification after the update.
 - [x] Review limitations and explicitly accept Gate 5 for trusted local use.
 
-## Public release blockers
+## Remaining private release gates
 
-- [ ] Implement authenticated users and per-user authorization for every API resource; migrate local records to an explicit owner and test cross-user isolation.
-- [ ] Choose hosting and configure HTTPS, secure credential/session storage, secrets management and least-privilege database roles; remove development credentials from deployment configuration.
-- [ ] Resolve frontend dependency advisories or document a reviewed risk disposition; verify a supported SDK/native dependency set as a whole.
-- [ ] Verify standalone build signing, final bundle identifier, entitlements, native permissions and notifications outside Expo Go. The current bundle identifier remains an example identifier.
-- [ ] Define privacy policy, retention/deletion/export controls, and account/data lifecycle behavior. Do not clear a device cache while unsynchronized writes remain.
-- [ ] Confirm remaining product scope, including preferred display units, settings/privacy controls, and UI authoring of programs/templates beyond the current API-based authoring and mobile browsing/activation.
-- [ ] Replace illustrative MTB seed content with approved prescriptions, or explicitly ship the starter as illustrative content.
-- [ ] Confirm production monitoring, sanitized operational logs, rate limits, timeouts, abuse controls and database recovery procedures.
-- [ ] Retain encrypted/off-device backups, scheduled backup monitoring, and periodic restoration drills for the deployed environment. A local Docker dump is not a complete production backup policy.
-- [ ] Create/review a versioned release commit/tag and reproducible build artifact. This repository was initialized but currently has no committed baseline.
-- [ ] Define release rollback and migration compatibility, including device queue/version compatibility; do not attempt destructive volume resets as rollback.
-- [ ] Obtain explicit deployment approval for the concrete target after all applicable blockers are resolved.
+- [ ] Create AWS account with MFA and budget alerts; enroll in Apple Developer Program. User owns vineandvolt.com but has neither account yet.
+- [ ] Confirm proposed hostname `lifestrong-api.vineandvolt.com` and available bundle identifier `com.vineandvolt.lifestrong` during account setup.
+- [ ] Complete physical iPhone owner-mode acceptance, including preserved offline writes after reauthentication and safe logout/export.
+- [ ] Approve concrete region/plan/cost, then deploy real HTTPS/DNS and verify access restrictions. Proposed Lightsail 2 GB public-IPv4 VM baseline is $12/month before extras.
+- [ ] Resolve frontend dependency advisories or record reviewed risk disposition; 28 affected package entries remain open. Preserve compatible Expo/native dependencies.
+- [ ] Produce signed ad hoc build; verify entitlements, permissions, notifications and standalone operation without Expo Go/Metro.
+- [ ] Review privacy inventory, backup retention and data lifecycle; device SQLite is not app-level encrypted. Account export/deletion are implemented but phone acceptance remains pending.
+- [ ] Confirm remaining product scope: preferred units, settings and program/template authoring beyond API-based authoring and mobile browsing/activation.
+- [ ] Approve illustrative training seed content or replace it with approved prescriptions.
+- [ ] Configure real monitoring, private encrypted off-device backups, failure alerts and restoration drills. Prepared scripts are not running infrastructure.
+- [ ] Record final release commit/tag, immutable image digest and signed build artifact after acceptance.
+- [ ] Verify rollback/migration and device-queue compatibility against the deployed environment.
+- [ ] Final rollout approval after applicable gates pass. Public multi-user access requires a separate isolation design and acceptance gate.
 
 ## Restoration procedure
 

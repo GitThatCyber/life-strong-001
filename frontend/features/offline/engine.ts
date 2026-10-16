@@ -56,6 +56,7 @@ export class OfflineEngine {
   }
   sync(id: string): Promise<void> {
     const existing = this.flights.get(id); if (existing) return existing;
+    if (!this.state.workouts[id]?.queue.length || this.state.workouts[id]?.blocked) return Promise.resolve();
     const flight = this.flush(id).finally(() => this.flights.delete(id));
     this.flights.set(id,flight); return flight;
   }
@@ -86,12 +87,16 @@ export class OfflineEngine {
         }));
       } catch (error) {
         const status = (error as { status?: number }).status;
-        this.update(id,w => ({ ...w,error: error instanceof Error ? error.message : 'Synchronization failed',blocked: !!status && status >= 400 && status < 500 }));
+        this.update(id,w => ({ ...w,error: error instanceof Error ? error.message : 'Synchronization failed',blocked: !!status && status !== 401 && status !== 429 && status >= 400 && status < 500 }));
         return;
       }
     }
   }
   retry(id: string) { this.update(id,w => ({ ...w,blocked: false,error: undefined })); return this.sync(id); }
+  clearSynced() {
+    if (this.flights.size || Object.keys(this.state.starts).length || Object.values(this.state.workouts).some(w => w.queue.length)) throw new Error('Synchronize all pending changes and recover unconfirmed starts before clearing local data.');
+    this.commit({ version: 1,workouts: {},starts: {} });
+  }
   async reviewServer(id: string) { return this.send<Session>(`/sessions/${id}`); }
   async discardQueue(id: string) {
     if (this.flights.has(id)) throw new Error('Wait for synchronization to finish before replacing local data');

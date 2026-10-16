@@ -26,6 +26,7 @@ export default function HomeScreen() {
         <Link href="./sessions" style={{ color: '#65dcc0',fontSize: 20,paddingVertical: 12 }}>Continue or review a workout →</Link>
         <Link href="./reminders" style={{ color: '#65dcc0',fontSize: 20,paddingVertical: 12 }}>Reminders and rest alerts →</Link>
         <Link href="./progress" style={{ color: '#65dcc0',fontSize: 20,paddingVertical: 12 }}>Progress and training history →</Link>
+        <Link href="./account" style={{ color: '#65dcc0',fontSize: 20,paddingVertical: 12 }}>Account and data →</Link>
         <Pressable onPress={testConnection} disabled={loading} style={styles.button} accessibilityRole="button">
           <Text style={styles.buttonText}>Test API Connection</Text>
         </Pressable>

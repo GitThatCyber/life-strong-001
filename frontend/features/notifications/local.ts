@@ -44,3 +44,9 @@ export async function testNotification() {
     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,seconds: 10,repeats: false },
   });
 }
+export async function disableOwnedNotifications() {
+  const p = preferences();
+  Storage.setItemSync(key,JSON.stringify({ ...p,reminders: false,rest: false }));
+  await reconcileNotifications();
+  await Notifications.cancelScheduledNotificationAsync(`${prefix}test`);
+}

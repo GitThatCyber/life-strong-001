@@ -1,0 +1,14 @@
+{
+  "cli": { "appVersionSource": "local" },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "env": { "EXPO_PUBLIC_AUTH_MODE": "owner" },
+      "ios": { "simulator": false }
+    },
+    "production": {
+      "env": { "EXPO_PUBLIC_AUTH_MODE": "owner" },
+      "ios": { "simulator": false }
+    }
+  }
+}

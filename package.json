@@ -15,6 +15,8 @@
     "verify:phase2": "node scripts/verify-phase2.mjs",
     "test:workout": "cd backend && node --import tsx --test ../frontend/tests/*.test.mjs",
     "verify:backup": "sh scripts/verify-backup.sh",
-    "check": "npm run check:api && npm run check:ios && npm run test:workout && npm run test:api"
+    "check": "npm run check:api && npm run check:ios && npm run test:workout && npm run test:api",
+    "test:release-image": "node scripts/verify-release-image.mjs",
+    "owner:setup": "npm --prefix backend run owner:setup"
   }
 }

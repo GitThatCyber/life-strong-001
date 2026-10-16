@@ -5,13 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
-    "test:integration": "RUN_DB_TESTS=1 node --import tsx --test tests/training.test.ts"
+    "test:integration": "RUN_DB_TESTS=1 node --import tsx --test tests/training.test.ts",
+    "migrate:built": "node dist/db/migrate.js",
+    "seed:built": "node dist/db/seed.js",
+    "owner:setup": "tsx src/db/owner.ts",
+    "owner:setup:built": "node dist/db/owner.js"
   },
   "dependencies": {
     "dotenv": "^16.6.1",

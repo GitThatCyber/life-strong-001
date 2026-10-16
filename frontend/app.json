@@ -11,7 +11,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.example.lifestrong"
+      "bundleIdentifier": "com.vineandvolt.lifestrong",
+      "buildNumber": "1"
     },
     "experiments": {
       "typedRoutes": true
@@ -19,7 +20,8 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-secure-store"
     ]
   }
 }

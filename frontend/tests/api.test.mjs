@@ -26,3 +26,22 @@ test('API client preserves operation IDs and uses stable errors for retries', as
   t.mock.method(globalThis,'fetch',async () => new Response('Proxy error',{ status: 502 }));
   await assert.rejects(apiGet('/sessions'),/API returned HTTP 502/);
 });
+
+test('owner credentials travel only as bearer headers and stale failures do not clear a newer sign-in', async t => {
+  const { getAccessToken,setAccessToken } = await import('../services/accessToken.ts');
+  const previous = process.env.EXPO_PUBLIC_AUTH_MODE;process.env.EXPO_PUBLIC_AUTH_MODE='owner';
+  try {
+    setAccessToken('old-token');
+    t.mock.method(globalThis,'fetch',async (_url,options) => {
+      assert.equal(options.headers.Authorization,'Bearer old-token');
+      assert.equal(options.body,undefined);
+      setAccessToken('new-token');
+      return Response.json({ error: { message: 'Expired' } },{ status: 401 });
+    });
+    await assert.rejects(apiGet('/sessions'),/Expired/);
+    assert.equal(getAccessToken(),'new-token');
+  } finally {
+    setAccessToken(null);
+    if(previous===undefined)delete process.env.EXPO_PUBLIC_AUTH_MODE;else process.env.EXPO_PUBLIC_AUTH_MODE=previous;
+  }
+});

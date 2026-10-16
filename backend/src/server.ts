@@ -1,11 +1,17 @@
 import 'dotenv/config';
 import { app } from './app.js';
 import { pool } from './db/pool.js';
+import { assertReleaseConfiguration } from './config/release.js';
+
+assertReleaseConfiguration(process.env);
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? '0.0.0.0';
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid PORT');
 const server = app.listen(port, host, () => console.log(`Life Strong API listening on http://${host}:${port}`));
+server.headersTimeout = 10000;
+server.requestTimeout = 30000;
+server.keepAliveTimeout = 5000;
 let closing = false;
 for (const signal of ['SIGINT','SIGTERM'] as const) process.on(signal,() => {
   if (closing) return;

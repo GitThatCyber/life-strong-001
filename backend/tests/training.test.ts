@@ -191,6 +191,54 @@ test('Training PostgreSQL and API acceptance (Phases 2–5)', { skip: process.en
         assert.match(offline.stdout,/PASS: offline restart/);
       } finally { await new Promise<void>((resolve,reject) => server.close(error => error ? reject(error) : resolve())); }
     });
+    await t.test('private owner authentication, ownership, expiry, export, revocation and deletion', async () => {
+      const priorMode = process.env.AUTH_MODE;
+      const priorNode = process.env.NODE_ENV;
+      const email = 'owner@example.invalid',password = 'test-only-owner-password-012345';
+      await run(process.execPath,['--import','tsx','src/db/owner.ts'],{ cwd,env: { ...process.env,OWNER_EMAIL: email,OWNER_PASSWORD: password } });
+      process.env.AUTH_MODE = 'owner';
+      try {
+        for (const path of ['/exercises','/workout-templates','/programs','/sessions','/progress','/schedule','/health/db','/account/export']) await request(app).get(`/api/v1${path}`).expect(401);
+        await request(app).post('/api/v1/exercises').send({ name: 'Unauthorized write' }).expect(401);
+        await request(app).get('/api/v1/health').expect(200);
+        await request(app).post('/api/v1/auth/login').send({ email,password: 'wrong' }).expect(401);
+        const login = async () => (await request(app).post('/api/v1/auth/login').send({ email,password }).expect(200)).body.token as string;
+        const token = await login();assert.match(token,/^[a-f0-9]{64}$/);
+        const stored = (await pool.query('SELECT token_hash FROM auth_sessions')).rows[0].token_hash;
+        assert.notEqual(stored,token);
+        const auth = `Bearer ${token}`;
+        const me = await request(app).get('/api/v1/account/me').set('Authorization',auth).expect(200);
+        assert.equal(me.body.email,email);
+        const ownerIds = (await pool.query('SELECT DISTINCT owner_id FROM workout_sessions')).rows;
+        assert.ok(ownerIds.every(r => r.owner_id === me.body.id));
+        await assert.rejects(pool.query("INSERT INTO app_owner(singleton,id,email) VALUES(false,$1,'intruder@example.invalid')",[randomUUID()]));
+        await request(app).get('/api/v1/exercises').set('Authorization',`Bearer ${'0'.repeat(64)}`).expect(401);
+        const exported = await request(app).get('/api/v1/account/export').set('Authorization',auth).expect(200);
+        assert.ok(Array.isArray(exported.body.workout_sessions));assert.equal(exported.body.owner.email,email);
+        assert.equal(exported.body.auth_sessions,undefined);assert.equal(exported.body.password_hash,undefined);
+        process.env.NODE_ENV = 'production';
+        await request(app).get('/api/v1/exercises').set('Authorization',auth).expect(400);
+        process.env.NODE_ENV = priorNode;
+        await pool.query("UPDATE auth_sessions SET expires_at=now()-interval '1 minute'");
+        await request(app).get('/api/v1/exercises').set('Authorization',auth).expect(401);
+        const nextToken = await login();
+        await request(app).post('/api/v1/account/logout').set('Authorization',`Bearer ${nextToken}`).send({}).expect(200);
+        await request(app).get('/api/v1/account/me').set('Authorization',`Bearer ${nextToken}`).expect(401);
+        const rotatedToken = await login();
+        await run(process.execPath,['--import','tsx','src/db/owner.ts'],{ cwd,env: { ...process.env,OWNER_EMAIL: email,OWNER_PASSWORD: password } });
+        await request(app).get('/api/v1/account/me').set('Authorization',`Bearer ${rotatedToken}`).expect(401);
+        const finalToken = await login();
+        await request(app).delete('/api/v1/account').set('Authorization',`Bearer ${finalToken}`).send({ confirmation: 'wrong' }).expect(400);
+        await request(app).delete('/api/v1/account').set('Authorization',`Bearer ${finalToken}`).send({ confirmation: 'DELETE MY ACCOUNT' }).expect(200);
+        assert.equal((await pool.query('SELECT count(*)::int AS n FROM workout_sessions')).rows[0].n,0);
+        assert.equal((await pool.query('SELECT count(*)::int AS n FROM exercises')).rows[0].n,0);
+        await request(app).get('/api/v1/account/me').set('Authorization',`Bearer ${finalToken}`).expect(401);
+        await request(app).post('/api/v1/auth/login').send({ email,password }).expect(503);
+      } finally {
+        if (priorMode === undefined) delete process.env.AUTH_MODE;else process.env.AUTH_MODE = priorMode;
+        if (priorNode === undefined) delete process.env.NODE_ENV;else process.env.NODE_ENV = priorNode;
+      }
+    });
   } finally {
     await pool.end();
     process.env.DATABASE_URL = original;
