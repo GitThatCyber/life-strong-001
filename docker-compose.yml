@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: lifestrong
+      POSTGRES_PASSWORD: lifestrong_dev_password
+      POSTGRES_DB: lifestrong
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - life_strong_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifestrong -d lifestrong"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  life_strong_postgres:

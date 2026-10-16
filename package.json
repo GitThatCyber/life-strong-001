@@ -1,0 +1,20 @@
+{
+  "name": "life-strong",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:api": "npm --prefix backend run dev",
+    "dev:ios": "npm --prefix frontend start",
+    "db:migrate": "npm --prefix backend run migrate",
+    "test:api": "npm --prefix backend test",
+    "check:api": "npm --prefix backend run typecheck",
+    "check:ios": "npm --prefix frontend run typecheck",
+    "archive": "sh scripts/archive.sh",
+    "db:seed": "npm --prefix backend run seed",
+    "test:integration": "npm --prefix backend run test:integration",
+    "verify:phase2": "node scripts/verify-phase2.mjs",
+    "test:workout": "cd backend && node --import tsx --test ../frontend/tests/*.test.mjs",
+    "verify:backup": "sh scripts/verify-backup.sh",
+    "check": "npm run check:api && npm run check:ios && npm run test:workout && npm run test:api"
+  }
+}
