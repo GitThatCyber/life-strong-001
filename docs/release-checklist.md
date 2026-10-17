@@ -1,55 +1,50 @@
 # Life Strong release readiness
 
-Gates 1–5 are user-accepted for trusted local use. The selected release target is a native iPhone app for one private owner, with minimum ongoing hosting cost. Private ad hoc installation avoids a public App Store listing but requires paid Apple membership. No cloud resources, DNS changes or signing have been performed. See [private release runbook](private-release-runbook.md) and [hosting options](hosting-options.md).
+Updated October 17, 2026. Gates 1–6 are user-accepted for the existing Expo/Express/PostgreSQL app. The owner approved migration to SwiftUI + local SwiftData + private CloudKit and deferred AWS. Phase 7A development/local automated verification is implemented; native owner-device/live CloudKit acceptance and later migration gates remain pending. This checklist supersedes the earlier server-deployment release direction.
 
-## Private release preparation implemented
+## Accepted legacy baseline
 
-- [x] Local accepted-MVP baseline committed as `30ad053`.
-- [x] Migration 004 assigns existing records to one private owner; no public signup or multi-user support.
-- [x] Owner password hashing, expiring/revocable opaque sessions, login limits and production HTTPS/configuration guards.
-- [x] Native Keychain credential storage, authenticated API client, retained offline queue after expired authentication.
-- [x] Account export, guarded logout/cache clearing and account deletion; deletion tests use isolated fixtures.
-- [x] Compiled non-root API container, restricted PostgreSQL runtime role, internal database/API networking and Caddy TLS configuration.
-- [x] Sanitized request logs, request timeouts and prepared off-device backup script.
-- [x] Native build configuration rejects HTTP endpoints, example identifiers and disabled owner authentication.
-- [x] Automated owner lifecycle/database integration and hardened release-image smoke tests pass; iOS JavaScript export succeeds. This is not a signed native build.
+- [x] Gates 1–5: API, training data, workout UX, durable offline queues/reminders and progress/accessibility accepted October 16, 2026.
+- [x] Gate 6: exercise/workout/program customization and follow-up consecutive exercise creation accepted October 17, 2026.
+- [x] Legacy automated typechecks, frontend/API/database tests and container checks passed during development; iOS JavaScript bundle export passed. These are not native Swift build results.
+- [x] Isolated backup restoration verified during previous work. A fresh cutover backup will still be required.
+- [x] Existing owner auth, token storage, export/deletion and deployment safeguards retained while legacy code is used.
+- [x] AWS/Apple account creation reported by owner; actual services, MFA and paid Apple membership are not independently verified.
+- [x] AWS integration deferred; target architecture and Phase 7 migration plan documented.
 
-## Evidence completed during Phase 5
+## Phase 7 native migration gates
 
-- [x] Completed-session analytics, timezone windows, all-time records and daily trends implemented.
-- [x] Current-schedule adherence and program activation exposed on iPhone.
-- [x] Automated analytics, offline/retry, validation and API/database regression tests pass.
-- [x] iOS bundle export succeeds with the pinned SDK 57 dependency family.
-- [x] Backup restored into a temporary database and queried successfully; working database unchanged.
-- [x] Dependency audits assessed: backend zero findings, frontend 28 package entries unresolved; see dependency-audit.md.
-- [x] Accessibility labels, selectable state, readable chart text, heading roles and scrollable Home added/reviewed in source.
+- [x] 7A development: SwiftUI Xcode project, versioned SwiftData schema/local repository, fixture workout flow and recovery/export implemented in ios-native/.
+- [x] Three native core XCTest cases, two simulator UI workflows, local build and unsigned CloudKit iPhoneOS compilation pass.
+- [ ] Accept 7A: owner physical local/offline checks plus signed private-development schema/sync evidence in phase-7a-testing.md. An unsigned build is not cloud acceptance.
+- [ ] Verify actual iPhone OS/minimum deployment target and supported Xcode toolchain. Proposed iOS minimum 17 must be validated.
+- [ ] Owner confirms Apple team, paid program enrollment, rehearsal/final bundle IDs, private container IDs and required signing/capabilities.
+- [ ] 7B: implement repeatable-read credential-free SQL export, separate Expo device recovery export and staged native import under data-migration-contract.md.
+- [ ] Verify counts/UUIDs/targets/snapshots/actuals/correction audit/archives/date semantics and analytics parity. Repeat/interrupted/bad imports must not duplicate or lose data.
+- [ ] 7C: implement native library/program/workout/progress/settings/reminder screens with all accepted feature behavior; local saves and new sessions work offline without API/Metro/Mac.
+- [ ] Recheck durable forms/timers, explicit corrections, consecutive exercise creation, archive safeguards, VoiceOver, Dynamic Type and physical notification delivery.
+- [ ] 7D: prove private same-account sync, partial hydration states, deduplication/conflict handling, account-switch isolation and network/quota recovery. Single designated authoring device initially; do not imply unrestricted multi-writer guarantees.
+- [ ] Verify local-only drafts/preferences/notification schedules do not cause duplicate cross-device alerts.
+- [ ] Verify export/import recovery, local cache removal versus cloud data deletion, and retained backup lifecycle. Cloud sync alone is not backup proof.
+- [ ] Review/deploy the intended production CloudKit schema through the owner's account; schema deployment does not transfer development records.
+- [ ] 7E: synchronize/reconcile legacy queues and ambiguous starts, freeze legacy writes, create final verified backups/exports, import once into the intended production destination and compare results.
+- [ ] Owner accepts signed standalone native app and cloud/recovery behavior on iPhone; record source/build/schema/container/import evidence before retiring legacy services.
 
-## Local acceptance confirmed by user October 16 2026
+## Remaining product and release decisions
 
-- [x] Complete Phase 5 iPhone analytics, date-window, correction, pending-sync and outage tests.
-- [x] Verify VoiceOver navigation/announcements and large Dynamic Type on the physical device.
-- [x] Recheck workout completion, offline recovery and a locked-screen local notification after the update.
-- [x] Review limitations and explicitly accept Gate 5 for trusted local use.
+- [ ] Confirm preferred display units and remaining settings scope; preserve canonical kg/meters/seconds in migration.
+- [ ] Approve illustrative training content or replace it with approved prescriptions; do not overwrite custom data by seeding.
+- [ ] Review actual native dependencies/privacy/permissions/signing. Existing 28 frontend dependency findings remain a legacy concern while that tree is still in use; they are not declared fixed by the new architecture.
+- [ ] Agree on private-data export retention and recovery process; verify real restore rather than an upload indication.
+- [ ] Record final versioned source, reproducible signed build and user acceptance. Public distribution/multi-user scope remains separate.
+- [ ] Retirement review after native acceptance: retain legacy rollback evidence and reconcile any new native writes before returning to an older PostgreSQL snapshot.
 
-## Remaining private release gates
+## Deferred server deployment
 
-- [ ] Create AWS account with MFA and budget alerts; enroll in Apple Developer Program. User owns vineandvolt.com but has neither account yet.
-- [ ] Confirm proposed hostname `lifestrong-api.vineandvolt.com` and available bundle identifier `com.vineandvolt.lifestrong` during account setup.
-- [ ] Complete physical iPhone owner-mode acceptance, including preserved offline writes after reauthentication and safe logout/export.
-- [ ] Approve concrete region/plan/cost, then deploy real HTTPS/DNS and verify access restrictions. Proposed Lightsail 2 GB public-IPv4 VM baseline is $12/month before extras.
-- [ ] Resolve frontend dependency advisories or record reviewed risk disposition; 28 affected package entries remain open. Preserve compatible Expo/native dependencies.
-- [ ] Produce signed ad hoc build; verify entitlements, permissions, notifications and standalone operation without Expo Go/Metro.
-- [ ] Review privacy inventory, backup retention and data lifecycle; device SQLite is not app-level encrypted. Account export/deletion are implemented but phone acceptance remains pending.
-- [ ] Accept Phase 6 native customization on iPhone using phase-6-testing.md. Exercise/workout/program editors and structured targets are implemented with automated coverage.
-- [ ] Confirm remaining product scope: preferred display units and remaining settings controls.
-- [ ] Approve illustrative training seed content or replace it with approved prescriptions.
-- [ ] Configure real monitoring, private encrypted off-device backups, failure alerts and restoration drills. Prepared scripts are not running infrastructure.
-- [ ] Record final release commit/tag, immutable image digest and signed build artifact after acceptance.
-- [ ] Verify rollback/migration and device-queue compatibility against the deployed environment.
-- [ ] Final rollout approval after applicable gates pass. Public multi-user access requires a separate isolation design and acceptance gate.
+Lightsail/S3/DNS/host monitoring, HTTPS API deployment and server owner-login phone acceptance are no longer gates for the SwiftData target. Historical deployment files remain intact for recovery/reference. No AWS account action, purchase, DNS change, cloud deletion or Apple schema action was executed by Codex. If resources exist independently, the owner reviews them separately; deferral does not stop billing.
 
-## Restoration procedure
+## Preservation during migration
 
-From the project root, create a PostgreSQL custom-format backup and verify it with `npm run verify:backup -- backups/your-file.dump`. The verifier creates a unique temporary database in the Docker PostgreSQL service, restores into it, queries migrations/exercises/session counts and removes only that temporary database. It never restores over the working database. The database role must be allowed to create databases.
+Keep the working PostgreSQL volume, .env files, source/lockfiles and Expo device storage. Use the existing verify:backup helper to restore a legacy dump only into its unique temporary database. Never clear pending queues, reset real CloudKit environments or overwrite a populated store to retry migration. After native writes begin, the old database is stale; reverse conversion is not assumed available.
 
-Use `npm run archive` to package source, manifests, lockfiles and safe environment examples. Local .env files, dependencies, backups and Git history are excluded. Retain secrets separately through an approved secure mechanism. Install dependencies with npm ci in backend/frontend, configure the intended environment, and use the migration runner. Do not replay old device queues against a restored or different database without reviewing their state and endpoint identity.
+Primary procedures: [migration plan](swiftdata-migration-plan.md), [data contract](data-migration-contract.md), [architecture](architecture.md). All native acceptance boxes remain open until implemented and verified.

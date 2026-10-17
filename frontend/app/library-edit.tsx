@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type Ref } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
@@ -13,9 +13,9 @@ const EditorLocked = createContext(false);
 function Button({ title,onPress,disabled = false }: { title: string; onPress: () => void; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[s.button,disabled && s.disabled]}><Text style={s.buttonText}>{title}</Text></Pressable>;
 }
-function Field({ label,value,onChange,numeric = false,multiline = false,maxLength = 2000 }: { label: string; value: string; onChange: (v: string) => void; numeric?: boolean; multiline?: boolean; maxLength?: number }) {
+function Field({ label,value,onChange,numeric = false,multiline = false,maxLength = 2000,inputRef }: { inputRef?: Ref<TextInput>; label: string; value: string; onChange: (v: string) => void; numeric?: boolean; multiline?: boolean; maxLength?: number }) {
   const locked = useContext(EditorLocked);
-  return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label} editable={!locked} style={[s.input,multiline && { minHeight: 80 }]} value={value} onChangeText={onChange} keyboardType={numeric ? 'decimal-pad' : 'default'} multiline={multiline} maxLength={maxLength} /></View>;
+  return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput ref={inputRef} accessibilityLabel={label} editable={!locked} style={[s.input,multiline && { minHeight: 80 }]} value={value} onChangeText={onChange} keyboardType={numeric ? 'decimal-pad' : 'default'} multiline={multiline} maxLength={maxLength} /></View>;
 }
 export default function LibraryEditor() {
   const params = useLocalSearchParams<{ kind?: string; id?: string }>(),navigation = useNavigation();
@@ -30,6 +30,16 @@ export default function LibraryEditor() {
   const [chooser,setChooser] = useState(false),[search,setSearch] = useState('');
   const [pending,setPending] = useState<{ path: string; method: string; body: unknown }>();
   const guard = useRef(false);
+  const nameInput = useRef<TextInput>(null);
+  const scroll = useRef<ScrollView>(null);
+  const focusNextExercise = useRef(false);
+  useEffect(() => {
+    if (!busy && focusNextExercise.current) {
+      focusNextExercise.current = false;
+      scroll.current?.scrollTo({ y: 0,animated: true });
+      nameInput.current?.focus();
+    }
+  },[busy]);
   const id = saved?.id ?? initialId;
   usePreventRemove(dirty || busy || !!pending,({ data }) => {
     if (guard.current) { Alert.alert('Request in progress','Wait for the request to finish.');return; }
@@ -65,7 +75,14 @@ export default function LibraryEditor() {
     if (guard.current) return;guard.current = true;setBusy(true);setError('');
     try {
       const result = await apiRequest<Saved>(request.path,request.method,request.body);
-      populate(result);setMessage('Saved. Existing workout history is unchanged.');
+      if (kind === 'exercise' && request.method === 'POST' && !initialId) {
+        setSaved(undefined);setName('');setEquipment('');setFocus('');setType('reps');
+        setDirty(false);setPending(undefined);
+        setMessage(`Saved “${result.name}”. Ready to create another exercise.`);
+        focusNextExercise.current = true;
+      } else {
+        populate(result);setMessage('Saved. Existing workout history is unchanged.');
+      }
     } catch (e) {
       // Known rejection did not commit; transport errors retain the exact request for replay.
       if (e instanceof ApiError && e.status>=400 && e.status<500 && e.status!==408 && e.status!==429) setPending(undefined);
@@ -105,7 +122,7 @@ export default function LibraryEditor() {
   function updateEntry(key: string,change: Partial<EntryDraft>) { changed(() => setEntries(items => items.map(e => e.key===key ? { ...e,...change } : e))); }
   return <KeyboardAvoidingView style={s.screen} behavior={Platform.OS==='ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
     <Stack.Screen options={{ title: `${id ? 'Edit' : 'Create'} ${kind === 'template' ? 'workout' : kind}`,gestureEnabled: false }} />
-    <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       <Text accessibilityRole="header" style={s.title}>{kind === 'template' ? 'Workout builder' : kind === 'exercise' ? 'Exercise editor' : 'Program builder'}</Text>
       <Text style={s.body}>Editing needs a connection. Unsaved forms stay here during failed requests, but are lost if you leave or close the app.</Text>
       {busy && <ActivityIndicator color="#65dcc0" />}
@@ -115,7 +132,7 @@ export default function LibraryEditor() {
       <Button title={ready ? 'Reload from server' : 'Retry loading'} onPress={reload} disabled={busy || !!pending} />
       {ready && <>
         <EditorLocked.Provider value={locked}><View pointerEvents={locked ? 'none' : 'auto'} accessibilityElementsHidden={locked} style={locked && s.disabled}>
-          <Field label="Name" value={name} maxLength={160} onChange={v => changed(() => setName(v))} />
+          <Field inputRef={nameInput} label="Name" value={name} maxLength={160} onChange={v => changed(() => setName(v))} />
           {kind==='exercise' ? <>
             <Field label="Equipment" value={equipment} onChange={v => changed(() => setEquipment(v))} />
             <Field label="Muscle focus" value={focus} onChange={v => changed(() => setFocus(v))} />
@@ -159,7 +176,7 @@ export default function LibraryEditor() {
             <Button title="Close choices" onPress={() => setChooser(false)} />
           </View>}
         </View></EditorLocked.Provider>
-        <Button title={busy ? 'Saving…' : 'Save changes'} onPress={save} disabled={locked || !dirty} />
+        <Button title={busy ? 'Saving…' : kind === 'exercise' && !id ? 'Save exercise' : 'Save changes'} onPress={save} disabled={locked || !dirty} />
         {!!saved && <Button title="Archive" onPress={archive} disabled={locked || dirty} />}
       </>}
     </ScrollView>

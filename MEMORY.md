@@ -1,6 +1,6 @@
 # Life Strong project memory
 
-Reviewed October 16, 2026. Source: `Life_Strong_Project_Scope_of_Work.docx`, baseline 1.1 amended October 16, 2026. Treat that document as the scope authority; this file is a development handoff summary.
+Updated October 17, 2026. Source: `Life_Strong_Project_Scope_of_Work.docx`, baseline 1.2 amended October 17, 2026. Treat that document as the scope authority; this file is a development handoff summary.
 
 ## Product and MVP
 
@@ -12,20 +12,19 @@ Core screens: Home, Programs, Workout, Progress, Settings. Optimize the iPhone w
 
 Excluded from MVP: social features, leaderboards, AI coaching, nutrition, billing, Apple Watch, HealthKit, Android/web production releases, complex video catalogs, and production-grade offline conflict resolution.
 
-## Approved architecture
+## Approved architecture October 17 2026
 
-- React Native + Expo SDK 57 + TypeScript; Expo Router for navigation.
-- Node.js + Express + TypeScript JSON REST API; version endpoints under `/api/v1`.
-- PostgreSQL as authoritative storage; `pg`, parameterized SQL, additive SQL migrations, and Zod validation.
-- `expo-notifications` for permission-based local reminders/rest alerts. Expo SQLite is planned for local drafts and eventual synchronization.
-- Docker Compose for isolated local PostgreSQL; npm and Git; TypeScript and Node test runner/Supertest or Vitest for quality checks.
-- Match native/Expo dependencies to SDK 57 compatibility. Preserve any existing validated package manifest and lockfile when integrating code.
+The user deferred AWS and approved native SwiftUI with local SwiftData and private CloudKit synchronization for the one-owner personal app. They have sufficient iCloud storage. This supersedes earlier approved Expo/Express/PostgreSQL hosting plans for the final target. No AWS provision/deletion, DNS or Apple account action is authorized by this decision; earlier self-service-only account instructions remain in force.
 
-API resource groups: exercises, workout-templates, programs, schedule, sessions, progress, preferences, health. Use stable JSON errors, appropriate 4xx/5xx distinctions, and idempotency keys/client operation IDs to support eventual offline retries.
+The current working code is still Expo SDK 57/TypeScript, Express/pg and PostgreSQL migrations 001–005. Gates 1–6 are accepted for that baseline. Phase 7A now has Swift source, Xcode project, package-based native tests and a diagnostic foundation exporter in ios-native/. No legacy/native migration importer or live CloudKit container has been created. Keep the accepted app, database, .env files and Expo storage until cutover; historical entries below describe earlier decisions and do not override this current direction.
+
+Target native domain validation/repositories save locally before success and work offline, with private CloudKit managed sync later. Device-local drafts/timers/reminder preferences remain separate from synced training data. No dedicated AWS/API runtime or app-owned server login is planned. Signing/membership and iCloud capabilities remain external prerequisites. Export/restore remains necessary because sync is not an independent backup.
+
+Follow docs/swiftdata-migration-plan.md and docs/data-migration-contract.md. Phase 7A is the first implementation task: native versioned-schema local-save/relaunch vertical slice, then compatibility test with a separate signed private development container. New native acceptance gates 7A–7E remain pending. Phase 7A implementation/local testing is complete; owner physical and signed CloudKit acceptance remain pending. Gates 7B–7E are still unimplemented.
 
 ## Data invariants
 
-Entities: users (future authenticated identity), exercises, workout_templates, template_exercises, programs, program_weeks/program_schedule, user_programs, workout_sessions, session_exercises, exercise_sets, reminder_preferences.
+Legacy entities: owner identity, exercises, workout_templates, template_exercises, programs, program_weeks/program_schedule, user_programs, workout_sessions, session_exercises, exercise_sets, reminder_preferences.
 
 Exercise prescriptions and recorded performance are separate. Template/program changes must never rewrite completed sessions. Preserve historical session observations, allowing explicit controlled corrections with audit-relevant timestamps. Store weight canonically in kilograms and convert for display; support measurement-specific exercise values.
 
@@ -174,3 +173,41 @@ Native Training library now links to exercise/workout/program creation and editi
 Editors require a connection. An uncertain save locks editing and retries the identical operation UUID/payload; backend receipts avoid duplicate creates/updates. UI updates include expected_revision and reject stale writes; legacy API writes may omit metadata for backward compatibility. Failed requests retain the mounted form, with leave confirmation. Library drafts are not durable after app close/authentication reset; durable offline library authoring is excluded. Existing workout queue durability is preserved. New APIs support existing routes and empty 204 archive responses. Account deletion clears library save receipts; export includes new target fields but excludes internal receipts.
 
 Verification: both typechecks, frontend tests (19 after archive regression), three health/config tests, isolated PostgreSQL suite (12 reported test nodes), hardened runtime container/least-privilege owner-mode target creation/retry/session snapshot/deletion tests and iOS JavaScript bundle export. Working .env files and application database were not changed/migrated; only isolated fixtures were mutated. Phone keyboard/navigation/accessibility, exact native behavior and owner acceptance remain pending via docs/phase-6-testing.md. Back up/verify, apply migrations twice, restart API/Expo and complete that guide before declaring Gate 6 accepted. Release dependency disposition, accounts/TLS/backups/signing gates remain open. Rollback must preserve Phase 6 targets; older library-writing code can discard targets and is not a safe unrestricted authoring rollback.
+
+
+## Gate 6 exercise creation follow-up
+
+The user reported needing to leave and reopen the exercise creator between exercises. Updated the native editor to clear exercise name/equipment/muscle focus and reset measurement type only after a confirmed POST success, keep create mode, name the saved exercise in confirmation, scroll to the top and focus Name for immediate subsequent entry. Each subsequent save gets its own operation UUID; failed/uncertain saves retain their form and exact retry request. Existing exercise edits continue to edit the same item; workout/program flows are unchanged. Updated the Gate 6 guide to test consecutive creation and failed-save recovery. Physical device acceptance remains pending.
+
+
+## Gate 6 accepted and AWS handoff October 17 2026
+
+The owner explicitly accepted Gate 6 and cleared the checklist update and AWS integration. Record native customization, consecutive exercise creation, targets/history, validation/retry/archive and regression checks as user-accepted, based on that report; individual phone logs were not independently captured. Gates 1–6 are accepted for local use. This does not mark separate owner-authentication, cloud HTTPS, backups, dependency disposition or signed-build gates accepted.
+
+The owner confirmed accounts have been created, then explicitly requested step-by-step self-service instructions and no account access/external execution. Do not provision AWS resources or contact third parties. AWS root MFA, DNS provider, CLI setup and paid Apple Developer enrollment are not independently verified. No AWS CLI is installed in the current shell and no AWS resources, DNS records or credentials were changed. The next deliverable is the AWS setup guide for the existing single-owner Lightsail/PostgreSQL17/Caddy deployment; avoid assuming EC2 instance roles attach to Lightsail.
+
+
+## Native architecture migration approved October 17 2026
+
+User explicitly deferred AWS, chose SwiftData/CloudKit and requested supporting docs plus a migration plan. Scope advanced to 1.2, with Phase 7 and current architecture replacing earlier server-hosting direction. Updated README, architecture, next steps, hosting, release/privacy/runbook status and marked AWS instructions historical/deferred. Added native plan and versioned migration data contract. No Swift application or CloudKit deployment is claimed complete.
+
+Plan retains all accepted features and UUID/snapshot/metric semantics; maps API services into Swift domain repositories; uses explicit local saves and separate device-local recovery state. SQL export must include archived rows/correction audit and consistent counts/checksum; existing /account/export lacks full migration metadata/device state. A legacy recovery exporter is needed because Swift cannot read Expo Go's sandbox. Resolve queues/ambiguous starts before a final write freeze. Do not synthesize old correction values or silently lose pending edits.
+
+CloudKit schema has no SQL unique/required relationship guarantees; use compatible models, versioning, import authority/dedup checks, account binding and real device sync tests. First scope is a designated authoring iPhone with sequential secondary-device verification; unrestricted concurrent multi-device edits are not promised. Private cloud data consumes owner iCloud quota, with no dedicated API-hosting bill; membership, signing and exportable backups still apply.
+
+User self-service AWS guide is retained as historical fallback only. No external resources were created or deleted and no secrets/current working data were touched. Existing uncommitted consecutive-exercise-creation fix and Gate 6 documentation were preserved.
+
+
+## Phase 7A developed October 17 2026 native acceptance pending
+
+Under the user's approval of the migration scope, built ios-native/LifeStrong.xcodeproj with a SwiftUI local rehearsal and separate CloudKit development rehearsal. No external account/container/signing/schema action was performed; preserve the self-service-only Apple account boundary. Retained all existing app, database, .env and uncommitted follow-up source changes. No real legacy data was imported or reset.
+
+Core contains public versioned TrainingSchemaV1 models (Exercise, WorkoutTemplate/TemplateExercise, WorkoutSession/SessionExercise, RecordedSet), empty-v1 TrainingMigrationPlan, explicit ModelContext saves/rollback and autosave disabled, metric/target validation, UUID replay checking, local draft/selection/deadline/pending-record JSON and diagnostic credential-free native export with counts. Models use optional inverse relationships, default-backed fields and no unique constraints. Structured targets/types/names/order/rest snapshot at session start; actuals remain separate. Completed sessions cannot be reopened. Interrupted set record persists its exact request before the database save so lost acknowledgement replay cannot create another set.
+
+SwiftUI implements consecutive exercise creation, workout targets/add/remove/reorder, offline session start/log/pause/resume/complete, saved session reopen and form/timer recovery, native export file picker. Added a fresh start operation after returning to the same preview so deliberate subsequent workouts remain distinct. Foundation is rehearsal-only: native import, programs/progress, editing/archive UI, corrections, native notifications, complete account switching and full backup/restore remain later phases. Do not use diagnostic JSON as a complete migration backup.
+
+Verification: Xcode 27.0 build 27A266a; deployment target iOS17, simulator runtime iOS26.5 on iPhone17Pro. Three native core XCTest cases pass, covering all measurements/validation, on-disk reopen/independent snapshots/export counts, and persisted drafts/lost-ack replay. Simulator end-to-end tests verify consecutive creation, actual-vs-target values, termination/relaunch retaining saved set plus unsaved input, completion and distinct repeated sessions. Local simulator build and unsigned CloudKitDebug iPhoneOS build succeed. Native screenshots reviewed for recovered/completed session layouts. No proof of an iOS17 runtime or physical device is claimed.
+
+CloudKit rehearsal bundle is com.vineandvolt.lifestrong.cloud-rehearsal, with proposed private container iCloud.com.vineandvolt.lifestrong.rehearsal; local app uses com.vineandvolt.lifestrong.rehearsal and displays Life Strong Lab. Cloud config checks account availability, uses separate storage and locks UI on account change; this is not full persistent account isolation. Only disposable fixtures; no production schema or real-data sync is ready. Owner must select Apple team/provisioning/capabilities and verify actual private development model acceptance/delivery using docs/phase-7a-testing.md before Gate7A is accepted. Updated native README, root docs and checklist.
+
+No third-party native package dependency: Package.swift tests Core on macOS14+, Xcode app compiles same Core source directly. Reproducible Python standard-library project generator and checked-in project/schemes/config files are included. Generator overwrites personal team overrides, so reapply signing after regeneration. Build/cache/Xcode user state ignores added.

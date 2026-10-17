@@ -1,6 +1,9 @@
 # Private native release runbook
 
-Target: one owner, native iPhone, proposed lifestrong-api.vineandvolt.com and com.vineandvolt.lifestrong. This runbook prepares a small self-managed Lightsail host; no paid resources are created by the code. Existing local .env files/database have not been migrated automatically. AWS and Apple accounts are not configured yet.
+> **Deferred October 17, 2026. Historical server architecture only.** The owner approved SwiftUI + local SwiftData + private CloudKit. Do not provision AWS or use the server-deployment instructions below for the new target. Follow [native migration plan](swiftdata-migration-plan.md) and [current release checklist](release-checklist.md). Existing resources, if any, are not automatically stopped or deleted by this documentation change.
+
+
+Target: one owner, native iPhone, proposed lifestrong-api.vineandvolt.com and com.vineandvolt.lifestrong. This runbook prepares a small self-managed Lightsail host; no paid resources are created by the code. Existing local .env files/database have not been migrated automatically. The owner confirmed account creation October 17, 2026; service configuration, MFA and paid Apple enrollment are not independently verified. Follow [AWS setup](aws-setup.md) for the owner-operated cloud procedure.
 
 ## 1 Account prerequisites
 

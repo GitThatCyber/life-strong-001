@@ -1,6 +1,6 @@
 # Phase 6 training customization setup and acceptance
 
-Phase 6 is implemented; Gate 6 awaits the owner's iPhone acceptance. It adds native exercise, workout and program editors, optional structured targets and safe library changes. Gates 1–5 remain accepted. This procedure does not deploy or push anything.
+Gate 6 was accepted by the owner October 17, 2026, after testing and the consecutive exercise creation follow-up. Individual device logs were not independently captured. It adds native exercise, workout and program editors, optional structured targets and safe library changes. Gates 1–5 remain accepted. This procedure does not deploy or push anything.
 
 ## 1 Preserve existing data
 
@@ -62,7 +62,7 @@ Create four test exercises with clearly recognizable names:
 | Gate 6 plank | Duration | Equipment Mat, muscle focus Core |
 | Gate 6 ride | Distance and duration | Equipment Bike, muscle focus Endurance |
 
-Save each, return to the library, then tap Edit exercise. Verify all fields persist. Change a name/equipment value and save again. Blank names must fail without losing the form. Save needs a connection. After saving a newly created item, further saves edit that item rather than creating another copy.
+Save each without leaving the create page. After a confirmed save, expect a named confirmation, cleared exercise fields, the default Repetitions type, and focus on Name for the next exercise. Create at least two in a row, then return to the library and tap Edit exercise. Verify all fields persist. Change a name/equipment value and save again. Blank names must fail without losing the form. Save needs a connection. Exercise creation stays in create mode after each confirmed save; editing an existing exercise stays in edit mode. Workout/program creation still switches to editing the saved item. A failed or uncertain exercise save retains its values and Retry save request; it must not clear the form or create duplicates.
 
 ## 5 Build a customized workout
 
@@ -109,12 +109,12 @@ Do not use account deletion as test cleanup on your real account. Archives hide 
 
 ## Gate 6 checklist
 
-- [ ] Four exercise types created, edited and reopened on iPhone.
-- [ ] Workouts support adding/removing/reordering exercises and all applicable structured targets/rest/instructions.
-- [ ] Programs support week/day scheduling, editing and activation without manual API calls.
-- [ ] Session targets and actual results stay distinct; active/completed history survives library edits.
-- [ ] Validation, unsaved-change confirmation, failed-save retry and archive safeguards work.
-- [ ] Offline workout recovery/sync, reminders, VoiceOver and large text pass regression checks.
-- [ ] Owner confirms Gate 6 acceptance. Until then, Phase 6 is implemented with device acceptance pending.
+- [x] Four exercise types created, edited and reopened on iPhone.
+- [x] Workouts support adding/removing/reordering exercises and all applicable structured targets/rest/instructions.
+- [x] Programs support week/day scheduling, editing and activation without manual API calls.
+- [x] Session targets and actual results stay distinct; active/completed history survives library edits.
+- [x] Validation, unsaved-change confirmation, failed-save retry and archive safeguards work.
+- [x] Offline workout recovery/sync, reminders, VoiceOver and large text pass regression checks.
+- [x] Owner confirmed Gate 6 acceptance October 17, 2026.
 
 Private release still needs the remaining release-checklist.md gates. No push, hosting deployment or signing was performed by this phase.

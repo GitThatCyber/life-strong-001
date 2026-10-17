@@ -1,5 +1,8 @@
 # Dependency assessment October 16 2026
 
+> Architecture update October 17, 2026: the native SwiftData/CloudKit replacement is planned. This audit still applies to the legacy Expo/Node implementation while retained/used; the findings have not been remediated by changing the target architecture. Audit the actual native dependencies separately when implemented.
+
+
 Read-only npm audits were retrieved for both packages during Phase 5. Backend: zero reported findings. Frontend: 28 affected package entries (18 high, 10 moderate, no critical). These are registry audit results, not a guarantee of exploitability or safety. No forced fixes, dependency overrides, SDK changes or lockfile upgrades were applied.
 
 The frontend report exposes four underlying advisory records; many other package entries inherit a finding through their dependencies. Confirmed installed paths:

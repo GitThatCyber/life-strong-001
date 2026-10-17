@@ -12,3 +12,10 @@ coverage/
 frontend/expo-env.d.ts
 archives/
 backups/
+# Native Swift development output and personal Xcode state
+ios-native/.build/
+ios-native/.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcresult/

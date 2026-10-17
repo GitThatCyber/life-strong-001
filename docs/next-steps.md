@@ -1,3 +1,11 @@
+# Current next step Native migration Phase 7
+
+October 17, 2026: AWS integration is deferred. The owner approved SwiftUI, local SwiftData and private CloudKit. Phase 7A development is implemented; owner-device and real CloudKit acceptance are next. Follow [Phase 7A instructions](phase-7a-testing.md) and the [migration plan](swiftdata-migration-plan.md), using the [migration data contract](data-migration-contract.md) and [current architecture](architecture.md).
+
+Gates 1–6 remain accepted for the legacy app. Preserve it and its data during the migration. Do not provision AWS, modify DNS, reset CloudKit or replace the owner's installed app. Versioned local model/recovery tests and simulator workflows pass. Verify physical local use and private development sync under owner-managed Apple capabilities before building full parity/import. Follow native gates 7A–7E in release-checklist.md.
+
+The sections below are chronological history; their earlier next-step/hosting instructions are superseded by this decision.
+
 # Phase 2 implementation and acceptance
 
 Gate 1 was accepted October 16, 2026 after the user's successful iPhone API and database failure/recovery checks. Phase 2 was implemented in this repository, with isolated PostgreSQL/API acceptance tests and a successful iOS bundle export. Gate 2 was accepted by the user on October 16, 2026. Keep `phase-2-testing.md` as the repeatable regression procedure. API documentation is in `phase-2-api.md`.
@@ -63,3 +71,10 @@ Continue with docs/private-release-runbook.md and docs/release-checklist.md. Phy
 The user approved native customization before pushing. The Word scope is now version 1.1 with Phase 6 and its own acceptance gate. Native library editors cover exercise fields/type, workout exercise order and structured sets/reps/load/duration/distance/rest targets, and program length/week-day assignments. API migration 005 adds target snapshots, revision checks and retry receipts. Existing session history remains independent of template edits.
 
 Follow [Phase 6 setup and acceptance](phase-6-testing.md): verify a backup, migrate twice, run checks, restart API/Expo and test on iPhone. The working database and .env files have not been changed by isolated development tests. Gate 6 awaits the user's confirmation. Library authoring needs a connection and does not persist unsaved forms after app close/authentication reset; existing workout offline durability remains. Release signing/hosting/backups/dependency review and display-unit preferences remain open. No push/deployment was performed.
+
+
+## Gate 6 accepted and AWS handoff October 17 2026
+
+The owner explicitly accepted Gate 6 and cleared the checklist update and AWS integration. Record native customization, consecutive exercise creation, targets/history, validation/retry/archive and regression checks as user-accepted, based on that report; individual phone logs were not independently captured. Gates 1–6 are accepted for local use. This does not mark separate owner-authentication, cloud HTTPS, backups, dependency disposition or signed-build gates accepted.
+
+The owner confirmed accounts have been created, then explicitly requested step-by-step self-service instructions and no account access/external execution. Do not provision AWS resources or contact third parties. AWS root MFA, DNS provider, CLI setup and paid Apple Developer enrollment are not independently verified. No AWS CLI is installed in the current shell and no AWS resources, DNS records or credentials were changed. The next deliverable is the AWS setup guide for the existing single-owner Lightsail/PostgreSQL17/Caddy deployment; avoid assuming EC2 instance roles attach to Lightsail.

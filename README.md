@@ -1,10 +1,16 @@
 # Life Strong
 
-General fitness tracker. Gates 1–5 are accepted for trusted local single-user use. Phase 5 progress, accessibility and reliability acceptance is complete. Private native release preparation is implemented; cloud setup, owner-mode phone acceptance, dependency review and signing remain open. See [private release runbook](docs/private-release-runbook.md). Stack: Expo / React Native / TypeScript → Express REST API → PostgreSQL.
+Life Strong is a personal fitness app. Gates 1–6 are accepted for the existing Expo/Express/PostgreSQL implementation. On October 17, 2026 the owner approved migration to **SwiftUI + local SwiftData + private CloudKit** to eliminate the dedicated API hosting requirement. AWS integration is deferred; do not follow the historical AWS setup guide for the new target.
 
-Phase 6 native customization is implemented, with iPhone acceptance pending. Follow [Phase 6 setup and acceptance](docs/phase-6-testing.md) to back up, migrate and test exercise/workout/program editors.
+Phase 7A development is implemented in [ios-native](ios-native/README.md): a separate SwiftUI/SwiftData rehearsal app with local-save/relaunch tests. Follow [Phase 7A end-to-end instructions](docs/phase-7a-testing.md). Physical iPhone and live CloudKit development acceptance remain pending; no native importer or CloudKit container has been created. The accepted TypeScript app and its data remain intact for real use until cutover.
 
-For the repeatable end-to-end regression sequence, follow [Phase 5 testing](docs/phase-5-testing.md) and review the [release checklist](docs/release-checklist.md). Earlier regression procedures remain in [Phase 4 testing](docs/phase-4-testing.md) and [Phase 3 testing](docs/phase-3-testing.md). API resources and metrics are documented in [API documentation](docs/phase-2-api.md).
+Start with the [native migration plan](docs/swiftdata-migration-plan.md), [data migration contract](docs/data-migration-contract.md), [current architecture](docs/architecture.md) and [release checklist](docs/release-checklist.md). Phase 7 covers native foundation, safe import, feature parity, private sync and cutover. Native release must pass new acceptance gates; prior local gates do not establish native readiness.
+
+## Existing application during migration
+
+The commands below operate the accepted **legacy** implementation only. Continue using it until native cutover is verified. Preserve .env files, PostgreSQL volumes and Expo's device queue/drafts. Do not delete either app's storage or replay pending writes against a different endpoint.
+
+[Phase 6 testing](docs/phase-6-testing.md) records accepted exercise, workout and program customization in Expo; earlier regression procedures remain in the Phase 3–5 documents. [Legacy API documentation](docs/phase-2-api.md) is a migration reference. No API deployment is needed for the approved SwiftData target.
 
 ## Requirements
 - Node.js 22+ and npm
