@@ -1,3 +1,4 @@
+import type { Targets } from '../library/model';
 export type Measurement = 'reps' | 'weight_reps' | 'duration' | 'distance_duration';
 export type Metric = 'reps' | 'weight_kg' | 'duration_seconds' | 'distance_meters';
 export type SetValues = { position: number } & Partial<Record<Metric,number>>;
@@ -5,7 +6,7 @@ export type WorkoutSet = SetValues & { id: string; operation_id: string; updated
 export type SessionExercise = {
   id: string; exercise_id: string; name: string; measurement_type: Measurement;
   prescription: string; rest_seconds: number; position: number; sets: WorkoutSet[];
-};
+} & Targets;
 export type Session = {
   id: string; template_name: string; status: 'active' | 'paused' | 'completed';
   started_at: string; completed_at: string | null; exercises: SessionExercise[];

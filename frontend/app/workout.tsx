@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { randomUUID } from 'expo-crypto';
+import { describeTargets, type Targets } from '../features/library/model';
 import { apiGet, apiRequest } from '../services/api';
 import { describeSet, draftFromSet, emptyDraft, labels, metricFields, nextPosition, parseSet, restRemaining, type Session, type WorkoutSet } from '../features/workouts/model';
 import { useRestTimer } from '../features/workouts/useRestTimer';
 import { workoutStyles as s } from '../features/workouts/styles';
 import { offline, useOffline } from '../features/offline/store';
 import { emptyTimer, projected, type FormState } from '../features/offline/engine';
-type Template = { id: string; name: string; description: string; exercises: { id: string; name: string; prescription: string }[] };
+type Template = { id: string; name: string; description: string; exercises: ({ id: string; name: string; prescription: string } & Targets)[] };
 const initialForm = (): FormState => ({ index: 0,draft: emptyDraft(),dirty: false });
 export default function WorkoutScreen() {
   const router = useRouter();
@@ -131,7 +132,7 @@ export default function WorkoutScreen() {
       {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
       {!!message && <Text accessibilityLiveRegion="polite" style={s.accent}>{message}</Text>}
       {!session && template && <><Text style={s.body}>{template.description}</Text>
-        {template.exercises.map((e,i) => <View key={e.id} style={s.card}><Text style={s.heading}>{i+1}. {e.name}</Text><Text style={s.body}>{e.prescription}</Text></View>)}
+        {template.exercises.map((e,i) => <View key={e.id} style={s.card}><Text style={s.heading}>{i+1}. {e.name}</Text><Text style={s.body}>Plan: {describeTargets(e)}</Text><Text style={s.body}>{e.prescription}</Text></View>)}
         {button(state.starts[template.id] ? 'Retry starting workout' : 'Start workout',() => { void start(); })}
         <Text style={s.body}>A connection is needed to start. Once started, sets and forms can be recorded offline.</Text>
       </>}
@@ -148,7 +149,7 @@ export default function WorkoutScreen() {
         <View style={s.row}>{session.exercises.map((e,i) => <Pressable key={e.id} accessibilityRole="button" accessibilityLabel={`Exercise ${i+1}: ${e.name}`} accessibilityState={{ selected: i === form.index }} disabled={busy} style={[s.secondary,i === form.index && { backgroundColor: '#284850' }]} onPress={() => select(i)}><Text style={s.accent}>{i+1} · {e.sets.length} sets</Text></Pressable>)}</View>
         {exercise && <View style={s.card}>
           <Text style={s.body}>Exercise {form.index+1} of {session.exercises.length}</Text><Text style={s.heading}>{exercise.name}</Text>
-          <Text style={s.body}>{exercise.prescription}</Text><Text style={s.body}>Rest default: {exercise.rest_seconds} seconds</Text>
+          <Text style={s.accent}>Plan: {describeTargets(exercise)}</Text><Text style={s.body}>Targets guide this workout. Log your actual results below.</Text><Text style={s.body}>{exercise.prescription}</Text><Text style={s.body}>Rest default: {exercise.rest_seconds} seconds</Text>
           {exercise.sets.map(set => <View key={set.operation_id} style={s.row}><Text style={[s.body,{ flex: 1 }]}>Set {set.position}: {describeSet(set)}</Text>{button(`Edit set ${set.position}`,() => openEdit(set),session.status === 'paused',true)}</View>)}
           {!exercise.sets.length && <Text style={s.body}>No sets recorded yet.</Text>}
           {(session.status === 'active' || edit) && <>

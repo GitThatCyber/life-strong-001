@@ -20,6 +20,7 @@ export async function apiRequest<T>(path: string, method = 'GET', body?: unknown
       const payload = await response.json().catch(() => undefined);
       throw new ApiError(payload?.error?.message ?? `API returned HTTP ${response.status}`,response.status);
     }
+    if (response.status === 204) return undefined as T;
     return await response.json() as T;
   } finally { clearTimeout(timeout); }
 }

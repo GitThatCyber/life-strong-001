@@ -10,7 +10,7 @@ Use an individual membership for the owner's personal target unless an organizat
 
 ## 2 Review code and preserve data
 
-The accepted local MVP baseline is commit 30ad053. Release preparation adds migration 004_private_owner.sql and the files listed in release-checklist.md. Review the private-owner design: no public signup, no second owner, no horizontal multi-user deployment. Existing root resources migrate to the singleton owner; descendants inherit their parent's ownership. Adding another user requires a new data isolation design and acceptance gate.
+The accepted local MVP baseline is commit 30ad053. Release preparation adds migration 004_private_owner.sql and Phase 6 adds 005_training_customization.sql and the files listed in release-checklist.md. Review the private-owner design: no public signup, no second owner, no horizontal multi-user deployment. Existing root resources migrate to the singleton owner; descendants inherit their parent's ownership. Adding another user requires a new data isolation design and acceptance gate.
 
 Synchronize all device queues to the current local API before data transfer. Back up and restore-verify the working database as documented in phase-5-testing.md. Keep a copy off the Mac securely. Do not change a device's API endpoint while it has pending work.
 
@@ -127,7 +127,7 @@ Install the resulting signed app through the approved ad hoc distribution workfl
 
 ## 8 Rollback and final release decision
 
-Record the source commit, backend image digest, database migration level, app version/build number, TLS hostname, backup restore result and device-test evidence. Keep a previous authenticated image compatible with migration 004. Never roll a public host back to the unauthenticated local-MVP image.
+Record the source commit, backend image digest, database migration level, app version/build number, TLS hostname, backup restore result and device-test evidence. Keep a previous authenticated image compatible with migrations 004 and 005 and Phase 6 target preservation. Older library-writing code can discard structured targets; freeze authoring and review compatibility rather than rolling it back unrestricted. Never roll a public host back to the unauthenticated local-MVP image.
 
 If database restoration is needed, stop writes, verify the target/backup, restore to an isolated instance first and compare records. Revoke restored auth_sessions so previously revoked credentials are not resurrected from a backup. Review device outboxes before replaying against restored records; acknowledged operations lost during restore need deliberate reconciliation. Do not use Docker volume deletion as rollback.
 

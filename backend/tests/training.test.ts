@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import request from 'supertest';
 
-test('Training PostgreSQL and API acceptance (Phases 2–5)', { skip: process.env.RUN_DB_TESTS !== '1' }, async t => {
+test('Training PostgreSQL and API acceptance (Phases 2–6)', { skip: process.env.RUN_DB_TESTS !== '1' }, async t => {
   assert.ok(process.env.DATABASE_URL, 'Configure backend/.env first');
   const admin = new pg.Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 3000 });
   const schema = `phase2_test_${randomUUID().replaceAll('-','')}`;
@@ -29,6 +29,7 @@ test('Training PostgreSQL and API acceptance (Phases 2–5)', { skip: process.en
       await run(process.execPath,['--import','tsx','src/db/migrate.ts'],{ cwd,env: process.env });
       const second = await run(process.execPath,['--import','tsx','src/db/migrate.ts'],{ cwd,env: process.env });
       assert.match(second.stdout,/Skipped 002_training.sql/);
+      assert.match(second.stdout,/Skipped 005_training_customization.sql/);
       await run(process.execPath,['--import','tsx','src/db/seed.ts'],{ cwd,env: process.env });
       await run(process.execPath,['--import','tsx','src/db/seed.ts'],{ cwd,env: process.env });
       assert.equal((await pool.query('SELECT count(*)::int AS n FROM exercises')).rows[0].n,4);
@@ -191,6 +192,57 @@ test('Training PostgreSQL and API acceptance (Phases 2–5)', { skip: process.en
         assert.match(offline.stdout,/PASS: offline restart/);
       } finally { await new Promise<void>((resolve,reject) => server.close(error => error ? reject(error) : resolve())); }
     });
+    await t.test('customization targets, retries, stale edits, archives and historical independence', async () => {
+      const types = ['reps','weight_reps','duration','distance_duration'];
+      const targets = [{ target_sets: 3,target_reps: 8 },{ target_sets: 2,target_reps: 10,target_weight_kg: 0 },{ target_sets: 1,target_duration_seconds: 30 },{ target_sets: 1,target_duration_seconds: 600,target_distance_meters: 2000 }];
+      const exercises = [];
+      for (const type of types) {
+        const body = { name: `Custom ${type}`,equipment: 'Custom',muscle_focus: 'General',measurement_type: type,operation_id: randomUUID() };
+        const [a,b] = await Promise.all([request(app).post('/api/v1/exercises').send(body),request(app).post('/api/v1/exercises').send(body)]);
+        assert.equal(a.status,201);assert.equal(b.status,201);assert.equal(a.body.id,b.body.id);
+        exercises.push(a.body);
+        await request(app).post('/api/v1/exercises').send({ ...body,name: 'Conflicting retry' }).expect(409);
+      }
+      const body = { name: 'Custom mixed workout',description: 'All measurement types',operation_id: randomUUID(),exercises: exercises.map((e,index) => ({ exercise_id: e.id,prescription: `Instructions ${index}`,rest_seconds: index*10,...targets[index] })) };
+      const template = (await request(app).post('/api/v1/workout-templates').send(body).expect(201)).body;
+      const replay = (await request(app).post('/api/v1/workout-templates').send(body).expect(201)).body;
+      assert.equal(template.id,replay.id);assert.equal(template.exercises[1].target_weight_kg,0);
+      await request(app).put(`/api/v1/workout-templates/${template.id}`).send({ ...body,operation_id: randomUUID(),expected_revision: 0,exercises: [{ exercise_id: exercises[0].id,target_duration_seconds: 30 }] }).expect(400);
+      assert.equal((await request(app).get(`/api/v1/workout-templates/${template.id}`)).body.revision,0);
+      await request(app).put(`/api/v1/workout-templates/${template.id}`).send({ ...body,operation_id: randomUUID(),exercises: [{ exercise_id: exercises[0].id,target_sets: 1.5 }] }).expect(400);
+      const started = (await request(app).post('/api/v1/sessions').send({ template_id: template.id,operation_id: randomUUID() }).expect(201)).body;
+      assert.equal(started.exercises[0].target_sets,3);assert.deepEqual(started.exercises[0].sets,[]);
+      const programBody = { name: 'Custom program',description: '',weeks: 2,operation_id: randomUUID(),schedule: [{ template_id: template.id,week: 2,day: 7 }] };
+      const program = (await request(app).post('/api/v1/programs').send(programBody).expect(201)).body;
+      assert.equal((await request(app).post('/api/v1/programs').send(programBody).expect(201)).body.id,program.id);
+      await request(app).delete(`/api/v1/exercises/${exercises[0].id}`).expect(409);
+      await request(app).delete(`/api/v1/workout-templates/${template.id}`).expect(409);
+      const exerciseChange = { name: 'Changed custom reps',measurement_type: 'duration',operation_id: randomUUID(),expected_revision: 0 };
+      await request(app).put(`/api/v1/exercises/${exercises[0].id}`).send(exerciseChange).expect(409);
+      const update = { ...body,operation_id: randomUUID(),expected_revision: 0,name: 'Reordered workout',exercises: [...body.exercises].reverse().slice(0,3) };
+      const changed = (await request(app).put(`/api/v1/workout-templates/${template.id}`).send(update).expect(200)).body;
+      assert.equal(changed.revision,1);assert.equal(changed.exercises[0].exercise_id,exercises[3].id);
+      assert.equal((await request(app).put(`/api/v1/workout-templates/${template.id}`).send(update).expect(200)).body.revision,1);
+      await request(app).put(`/api/v1/workout-templates/${template.id}`).send({ ...update,operation_id: randomUUID() }).expect(409);
+      await request(app).put(`/api/v1/exercises/${exercises[0].id}`).send(exerciseChange).expect(200);
+      await request(app).put(`/api/v1/exercises/${exercises[0].id}`).send({ ...exerciseChange,operation_id: randomUUID() }).expect(409);
+      const history = (await request(app).get(`/api/v1/sessions/${started.id}`).expect(200)).body;
+      assert.equal(history.template_name,'Custom mixed workout');assert.equal(history.exercises.length,4);
+      assert.equal(history.exercises[0].measurement_type,'reps');assert.equal(history.exercises[0].target_reps,8);
+      assert.equal(history.exercises[2].target_duration_seconds,30);
+      await request(app).post(`/api/v1/sessions/${started.id}/exercises/${history.exercises[0].id}/sets`).send({ operation_id: randomUUID(),position: 1,reps: 6 }).expect(201);
+      await request(app).patch(`/api/v1/sessions/${started.id}`).send({ status: 'completed' }).expect(200);
+      const completed = (await request(app).get(`/api/v1/sessions/${started.id}`).expect(200)).body;
+      assert.equal(completed.exercises[0].target_reps,8);assert.equal(completed.exercises[0].sets[0].reps,6);
+      await request(app).put(`/api/v1/programs/${program.id}`).send({ ...programBody,operation_id: randomUUID(),expected_revision: 0,weeks: 3,schedule: [] }).expect(200);
+      await request(app).put(`/api/v1/programs/${program.id}`).send({ ...programBody,operation_id: randomUUID(),expected_revision: 0 }).expect(409);
+      await request(app).delete(`/api/v1/programs/${program.id}`).send({ expected_revision: 0 }).expect(409);
+      await request(app).delete(`/api/v1/programs/${program.id}`).send({ expected_revision: 1 }).expect(204);
+      await request(app).delete(`/api/v1/workout-templates/${template.id}`).send({ expected_revision: 1 }).expect(204);
+      await request(app).delete(`/api/v1/exercises/${exercises[0].id}`).send({ expected_revision: 1 }).expect(204);
+      await request(app).post('/api/v1/sessions').send({ template_id: template.id,operation_id: randomUUID() }).expect(404);
+      assert.equal((await request(app).get(`/api/v1/sessions/${started.id}`).expect(200)).body.exercises[0].sets[0].reps,6);
+    });
     await t.test('private owner authentication, ownership, expiry, export, revocation and deletion', async () => {
       const priorMode = process.env.AUTH_MODE;
       const priorNode = process.env.NODE_ENV;
@@ -232,6 +284,7 @@ test('Training PostgreSQL and API acceptance (Phases 2–5)', { skip: process.en
         await request(app).delete('/api/v1/account').set('Authorization',`Bearer ${finalToken}`).send({ confirmation: 'DELETE MY ACCOUNT' }).expect(200);
         assert.equal((await pool.query('SELECT count(*)::int AS n FROM workout_sessions')).rows[0].n,0);
         assert.equal((await pool.query('SELECT count(*)::int AS n FROM exercises')).rows[0].n,0);
+        assert.equal((await pool.query('SELECT count(*)::int AS n FROM library_write_receipts')).rows[0].n,0);
         await request(app).get('/api/v1/account/me').set('Authorization',`Bearer ${finalToken}`).expect(401);
         await request(app).post('/api/v1/auth/login').send({ email,password }).expect(503);
       } finally {

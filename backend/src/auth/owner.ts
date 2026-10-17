@@ -104,7 +104,7 @@ protectedAccountRouter.delete('/',async (req,res) => {
   if (!res.locals.authClient) { res.status(404).json({ error: { code: 'AUTH_DISABLED',message: 'Owner mode is required' } });return; }
   const client = res.locals.authClient;
   await client.query('SELECT id FROM app_owner WHERE singleton FOR UPDATE');
-  for (const table of ['set_correction_receipts','exercise_sets','session_exercises','workout_sessions','user_programs','program_schedule','programs','template_exercises','workout_templates','exercises','seed_history','auth_sessions']) {
+  for (const table of ['library_write_receipts','set_correction_receipts','exercise_sets','session_exercises','workout_sessions','user_programs','program_schedule','programs','template_exercises','workout_templates','exercises','seed_history','auth_sessions']) {
     await client.query(`DELETE FROM ${table}`);
   }
   await client.query('UPDATE app_owner SET email=NULL,password_hash=NULL,disabled=true,updated_at=now() WHERE singleton');

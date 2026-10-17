@@ -40,7 +40,8 @@ Gates 1–5 are user-accepted for trusted local use. The selected release target
 - [ ] Resolve frontend dependency advisories or record reviewed risk disposition; 28 affected package entries remain open. Preserve compatible Expo/native dependencies.
 - [ ] Produce signed ad hoc build; verify entitlements, permissions, notifications and standalone operation without Expo Go/Metro.
 - [ ] Review privacy inventory, backup retention and data lifecycle; device SQLite is not app-level encrypted. Account export/deletion are implemented but phone acceptance remains pending.
-- [ ] Confirm remaining product scope: preferred units, settings and program/template authoring beyond API-based authoring and mobile browsing/activation.
+- [ ] Accept Phase 6 native customization on iPhone using phase-6-testing.md. Exercise/workout/program editors and structured targets are implemented with automated coverage.
+- [ ] Confirm remaining product scope: preferred display units and remaining settings controls.
 - [ ] Approve illustrative training seed content or replace it with approved prescriptions.
 - [ ] Configure real monitoring, private encrypted off-device backups, failure alerts and restoration drills. Prepared scripts are not running infrastructure.
 - [ ] Record final release commit/tag, immutable image digest and signed build artifact after acceptance.

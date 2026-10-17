@@ -63,3 +63,16 @@ Adherence counts current active-program slots due within the selected window, in
 ## Error and collection limits
 
 Errors have `{"error":{"code":"VALIDATION_ERROR","message":"Invalid request","issues":[]}}`; the issues array is included for schema failures. Invalid JSON/inputs return 400, missing resources 404, conflicting operations or lifecycle states 409, and unexpected server failures 500 without database details. Unknown request keys are rejected. Lists of exercises/templates/programs are currently unpaginated; session and exercise history have fixed limits stated above. Pagination and aggregate progress metrics can follow with Insights work.
+
+
+## Phase 6 structured targets and library editing
+
+Apply migration 005 before using the native library editors. Existing endpoints remain; POST/PUT exercises, workout-templates and programs accept optional operation_id (UUID) and expected_revision (nonnegative integer). New native saves always use an operation ID and updates use the loaded revision. Repeating the same operation and normalized payload returns the saved response, even after later edits. Reusing the operation with different values returns 409 OPERATION_CONFLICT. Stale revisions return 409 STALE_EDIT without changing records. Legacy clients may omit metadata; those writes do not receive stale-edit protection.
+
+Workout entry input now accepts nullable/omittable target_sets (1–1000), target_reps (whole 1–100000), target_weight_kg (0–10000), target_duration_seconds (>0 through 604800), target_distance_meters (>0 through 10000000). Targets are optional; null/omission means unspecified on the full replacement PUT. Rest remains integer 0–3600 seconds; prescription remains optional instruction text. Array order defines exercise order; repeated exercises are allowed.
+
+Reps accepts target_reps; weight_reps accepts target_reps/target_weight_kg; duration accepts target_duration_seconds; distance_duration accepts target_duration_seconds/target_distance_meters. All accept target_sets. Incompatible populated metrics return 400 INCOMPATIBLE_TARGETS and roll back the entire template change. Exercise type changes return 409 INCOMPATIBLE_TARGETS while linked unarchived workouts retain incompatible targets. Clear those targets before changing type.
+
+Starting a session snapshots targets alongside its existing name/type/prescription/order/rest snapshots. Actual set writes remain unchanged and are never synthesized from a plan. Editing a program changes its current schedule/adherence, while session observations remain unchanged.
+
+DELETE library routes archive and return empty HTTP 204. They accept optional expected_revision. Referenced exercises/workouts return 409 IN_USE until removed from unarchived plans; programs deactivate on archive. Repeated archive is safe. Existing history stays queryable. Account export includes target columns and account deletion removes library save receipts. Native library editing requires a connection; durable offline library authoring is outside Phase 6.

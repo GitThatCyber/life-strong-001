@@ -45,3 +45,12 @@ test('owner credentials travel only as bearer headers and stale failures do not 
     if(previous===undefined)delete process.env.EXPO_PUBLIC_AUTH_MODE;else process.env.EXPO_PUBLIC_AUTH_MODE=previous;
   }
 });
+
+test('successful library archive accepts an empty 204 response', async t => {
+  t.mock.method(globalThis,'fetch',async (_url,options) => {
+    assert.equal(options.method,'DELETE');
+    assert.deepEqual(JSON.parse(options.body),{ expected_revision: 2 });
+    return new Response(null,{ status: 204 });
+  });
+  assert.equal(await apiRequest('/exercises/fixture','DELETE',{ expected_revision: 2 }),undefined);
+});

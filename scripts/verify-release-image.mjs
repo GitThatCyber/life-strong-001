@@ -55,6 +55,11 @@ try {
     const login=await fetch(base+'/auth/login',{method:'POST',headers,body:JSON.stringify({email:'release-test@example.invalid',password:process.env.TEST_OWNER_PASSWORD})});assert.equal(login.status,200);const {token}=await login.json();
     headers.Authorization='Bearer '+token;
     const exercises=await fetch(base+'/exercises',{headers});assert.equal(exercises.status,200);assert.equal((await exercises.json()).length,4);
+    const customBody={name:'Runtime custom timer',measurement_type:'duration',operation_id:crypto.randomUUID()};
+    const created=await fetch(base+'/exercises',{method:'POST',headers,body:JSON.stringify(customBody)});assert.equal(created.status,201);const custom=await created.json();
+    const retry=await fetch(base+'/exercises',{method:'POST',headers,body:JSON.stringify(customBody)});assert.equal((await retry.json()).id,custom.id);
+    const workoutResult=await fetch(base+'/workout-templates',{method:'POST',headers,body:JSON.stringify({name:'Runtime custom workout',operation_id:crypto.randomUUID(),exercises:[{exercise_id:custom.id,target_sets:2,target_duration_seconds:45,rest_seconds:20}]})});assert.equal(workoutResult.status,201);const workout=await workoutResult.json();
+    const started=await fetch(base+'/sessions',{method:'POST',headers,body:JSON.stringify({template_id:workout.id,operation_id:crypto.randomUUID()})});assert.equal(started.status,201);assert.equal((await started.json()).exercises[0].target_duration_seconds,45);
     const connection=new pg.Pool({connectionString:process.env.DATABASE_URL});
     const role=(await connection.query('SELECT rolsuper,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=current_user')).rows[0];assert.deepEqual(role,{rolsuper:false,rolcreatedb:false,rolcreaterole:false});
     await assert.rejects(connection.query(\"INSERT INTO schema_migrations(filename) VALUES('forbidden')\"));
@@ -62,6 +67,7 @@ try {
     assert.equal((await fetch(base+'/account/export',{headers})).status,200);
     assert.equal((await fetch(base+'/account',{method:'DELETE',headers,body:JSON.stringify({confirmation:'DELETE MY ACCOUNT'})})).status,200);
     assert.equal((await connection.query('SELECT count(*)::int AS n FROM exercises')).rows[0].n,0);
+    assert.equal((await connection.query('SELECT count(*)::int AS n FROM library_write_receipts')).rows[0].n,0);
     assert.equal((await fetch(base+'/sessions',{headers})).status,401);await connection.end();
     console.log('PASS: hardened container, runtime role, owner HTTPS login, export, deletion and revocation');
   `;

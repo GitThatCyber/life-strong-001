@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Link, Stack } from 'expo-router';
+import { Link, Stack, useFocusEffect } from 'expo-router';
 import { apiGet, apiRequest } from '../services/api';
+import { describeTargets, type Targets } from '../features/library/model';
 import { localDate } from '../features/progress/model';
 
 type Exercise = { id: string; name: string; equipment: string; measurement_type: string };
 type Template = { id: string; name: string; description: string };
 type Program = { id: string; name: string; description: string; weeks: number };
 type ProgramDetail = Program & { schedule: { id: string; week: number; day: number; template_name: string }[] };
-type TemplateDetail = Template & { exercises: { id: string; name: string; prescription: string; rest_seconds: number }[] };
+type TemplateDetail = Template & { exercises: ({ id: string; name: string; prescription: string; rest_seconds: number } & Targets)[] };
 export default function BrowseScreen() {
   const [data,setData] = useState<{ exercises: Exercise[]; templates: Template[]; programs: Program[] }>();
   const [loading,setLoading] = useState(false);
@@ -28,7 +29,7 @@ export default function BrowseScreen() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to load library'); }
     finally { setLoading(false); }
   },[]);
-  useEffect(() => { void load(); },[load]);
+  useFocusEffect(useCallback(() => { setSelection(undefined);void load(); },[load]));
   useEffect(() => {
     let current = true;
     setDetail(undefined); setDetailError(''); setActivationMessage('');
@@ -44,6 +45,9 @@ export default function BrowseScreen() {
     <Pressable accessibilityRole="button" disabled={loading} style={styles.button} onPress={() => { setSelection(undefined); void load(); }}>
       <Text style={styles.buttonText}>{loading ? 'Loading…' : 'Refresh library'}</Text>
     </Pressable>
+    <View style={styles.card}>
+      {(['exercise','template','program'] as const).map(kind => <Link key={kind} href={{ pathname: './library-edit',params: { kind } }} asChild><Pressable accessibilityRole="button" style={styles.button}><Text style={styles.buttonText}>Create {kind === 'template' ? 'workout' : kind}</Text></Pressable></Link>)}
+    </View>
     {loading && <ActivityIndicator color="#65dcc0" />}
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}. Check that the API is running, then refresh.</Text>}
     {selection && <View style={styles.card}>
@@ -51,6 +55,7 @@ export default function BrowseScreen() {
       {!detail && !detailError && <ActivityIndicator color="#65dcc0" />}
       {!!detailError && <Text accessibilityRole="alert" style={styles.error}>{detailError}</Text>}
       {detail && <>
+        <Link href={{ pathname: './library-edit',params: { kind: selection.kind,id: detail.id } }} asChild><Pressable accessibilityRole="button" style={styles.button}><Text style={styles.buttonText}>Edit {selection.kind === 'template' ? 'workout' : 'program'}</Text></Pressable></Link>
         <Text style={styles.heading}>{detail.name}</Text><Text style={styles.body}>{detail.description}</Text>
         {'schedule' in detail && <>
           <Pressable accessibilityRole="button" accessibilityState={{ disabled: activating }} disabled={activating} style={styles.button} onPress={() => {
@@ -67,7 +72,7 @@ export default function BrowseScreen() {
           {!!activationMessage && <Text accessibilityLiveRegion="polite" style={styles.accent}>{activationMessage}</Text>}
         </>}
         {'schedule' in detail ? detail.schedule.map(s => <Text key={s.id} style={styles.body}>Week {s.week} · Day {s.day}: {s.template_name}</Text>)
-          : detail.exercises.map(e => <View key={e.id}><Text style={styles.accent}>{e.name}</Text><Text style={styles.body}>{e.prescription} · Rest {e.rest_seconds}s</Text></View>)}
+          : detail.exercises.map(e => <View key={e.id}><Text style={styles.accent}>{e.name}</Text><Text style={styles.body}>{describeTargets(e)} · Rest {e.rest_seconds}s</Text><Text style={styles.body}>{e.prescription}</Text></View>)}
         {!('schedule' in detail) && <Link href={{ pathname: './workout',params: { templateId: detail.id } }} asChild>
           <Pressable style={styles.button} accessibilityRole="button"><Text style={styles.buttonText}>Open workout</Text></Pressable>
         </Link>}
@@ -75,7 +80,7 @@ export default function BrowseScreen() {
     </View>}
     {data && <>
       <Text style={styles.heading}>Programs</Text>
-      {!data.programs.length && <Text style={styles.body}>No programs yet. Run the starter seed or create one through the API.</Text>}
+      {!data.programs.length && <Text style={styles.body}>No programs yet. Tap Create program to build one.</Text>}
       {data.programs.map(p => <Pressable key={p.id} accessibilityRole="button" style={styles.card} onPress={() => setSelection({ kind: 'program',id: p.id })}>
         <Text style={styles.accent}>{p.name}</Text><Text style={styles.body}>{p.weeks} weeks · Tap for schedule</Text>
       </Pressable>)}
@@ -86,7 +91,7 @@ export default function BrowseScreen() {
       </Pressable>)}
       <Text style={styles.heading}>Exercises</Text>
       {!data.exercises.length && <Text style={styles.body}>No exercises yet.</Text>}
-      {data.exercises.map(e => <View key={e.id} style={styles.card}><Text style={styles.accent}>{e.name}</Text><Text style={styles.body}>{e.equipment || 'No equipment'} · {e.measurement_type.replaceAll('_',' ')}</Text></View>)}
+      {data.exercises.map(e => <View key={e.id} style={styles.card}><Text style={styles.accent}>{e.name}</Text><Text style={styles.body}>{e.equipment || 'No equipment'} · {e.measurement_type.replaceAll('_',' ')}</Text><Link href={{ pathname: './library-edit',params: { kind: 'exercise',id: e.id } }} asChild><Pressable accessibilityRole="button" style={styles.button}><Text style={styles.buttonText}>Edit exercise</Text></Pressable></Link></View>)}
     </>}
   </ScrollView>;
 }

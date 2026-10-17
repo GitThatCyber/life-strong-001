@@ -8,13 +8,26 @@ const uuid = z.uuid();
 const name = z.string().trim().min(1).max(160);
 const text = z.string().trim().max(2000);
 const measurement = z.enum(['reps', 'weight_reps', 'duration', 'distance_duration']);
-const exerciseInput = z.object({ name, equipment: text.default(''), muscle_focus: text.default(''), measurement_type: measurement }).strict();
+const writeMetadata = { operation_id: uuid.optional(), expected_revision: z.number().int().nonnegative().optional() };
+const targets = {
+  target_sets: z.number().int().min(1).max(1000).nullable().optional(),
+  target_reps: z.number().int().positive().max(100000).nullable().optional(),
+  target_weight_kg: z.number().min(0).max(10000).nullable().optional(),
+  target_duration_seconds: z.number().positive().max(604800).nullable().optional(),
+  target_distance_meters: z.number().positive().max(10000000).nullable().optional(),
+};
+const targetMetrics = ['target_reps','target_weight_kg','target_duration_seconds','target_distance_meters'] as const;
+function compatibleTargets(type: string, value: Record<string,unknown>) {
+  const allowed: Record<string,string[]> = { reps: ['target_reps'],weight_reps: ['target_reps','target_weight_kg'],duration: ['target_duration_seconds'],distance_duration: ['target_duration_seconds','target_distance_meters'] };
+  return targetMetrics.every(field => value[field] == null || allowed[type]?.includes(field));
+}
+const exerciseInput = z.object({ name, equipment: text.default(''), muscle_focus: text.default(''), measurement_type: measurement, ...writeMetadata }).strict();
 const templateInput = z.object({ name, description: text.default(''), exercises: z.array(z.object({
-  exercise_id: uuid, prescription: text.default(''), rest_seconds: z.number().int().min(0).max(3600).default(60),
-}).strict()).min(1).max(100) }).strict();
+  exercise_id: uuid, prescription: text.default(''), rest_seconds: z.number().int().min(0).max(3600).default(60), ...targets,
+}).strict()).min(1).max(100), ...writeMetadata }).strict();
 const programInput = z.object({ name, description: text.default(''), weeks: z.number().int().min(1).max(104), schedule: z.array(z.object({
   template_id: uuid, week: z.number().int().positive(), day: z.number().int().min(1).max(7),
-}).strict()).max(728) }).strict().superRefine((value, ctx) => {
+}).strict()).max(728), ...writeMetadata }).strict().superRefine((value, ctx) => {
   const seen = new Set<string>();
   for (const item of value.schedule) {
     const key = `${item.week}-${item.day}`;
@@ -36,6 +49,26 @@ async function transaction<T>(work: (client: PoolClient) => Promise<T>) {
   try { await client.query('BEGIN'); const result = await work(client); await client.query('COMMIT'); return result; }
   catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
+}
+async function libraryWrite<T>(key: string, value: { operation_id?: string }, work: (client: PoolClient) => Promise<T>): Promise<T> {
+  return transaction(async client => {
+    const request = JSON.stringify({ key, value });
+    if (value.operation_id) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[value.operation_id]);
+      const prior = (await client.query('SELECT response,request=$2::jsonb AS matches FROM library_write_receipts WHERE operation_id=$1',[value.operation_id,request])).rows[0];
+      if (prior) {
+        if (!prior.matches) fail(409,'OPERATION_CONFLICT','This save identifier was already used with different values.');
+        return prior.response;
+      }
+    }
+    const result = await work(client);
+    if (value.operation_id) await client.query('INSERT INTO library_write_receipts(operation_id,request,response) VALUES($1,$2,$3)',[value.operation_id,request,JSON.stringify(result)]);
+    return result;
+  });
+}
+function checkRevision(row: { revision: number; archived: boolean }, expected?: number) {
+  if (row.archived) fail(409,'ARCHIVED','This item is archived. Reload the library.');
+  if (expected !== undefined && row.revision !== expected) fail(409,'STALE_EDIT','This item changed elsewhere. Reload it before editing. Your form is retained.');
 }
 async function requireRow(client: Pick<PoolClient, 'query'>, sql: string, values: unknown[]) {
   const row = (await client.query(sql, values)).rows[0];
@@ -68,48 +101,67 @@ trainingRouter.get('/exercises', async (_req, res) => {
 trainingRouter.get('/exercises/:id', async (req, res) => {
   res.json(await requireRow(pool, 'SELECT * FROM exercises WHERE id=$1', [uuid.parse(req.params.id)]));
 });
-trainingRouter.post('/exercises', async (req, res) => {
-  const v = exerciseInput.parse(req.body);
-  res.status(201).json((await pool.query(`INSERT INTO exercises(name,equipment,muscle_focus,measurement_type)
-    VALUES($1,$2,$3,$4) RETURNING *`, [v.name,v.equipment,v.muscle_focus,v.measurement_type])).rows[0]);
-});
-trainingRouter.put('/exercises/:id', async (req, res) => {
-  const id = uuid.parse(req.params.id), v = exerciseInput.parse(req.body);
-  res.json(await requireRow(pool, `UPDATE exercises SET name=$2,equipment=$3,muscle_focus=$4,measurement_type=$5,updated_at=now()
-    WHERE id=$1 RETURNING *`, [id,v.name,v.equipment,v.muscle_focus,v.measurement_type]));
-});
-trainingRouter.delete('/exercises/:id', async (req, res) => {
-  await requireRow(pool, 'UPDATE exercises SET archived=true,updated_at=now() WHERE id=$1 RETURNING id', [uuid.parse(req.params.id)]);
-  res.status(204).end();
+async function saveExercise(id: string | undefined, v: z.infer<typeof exerciseInput>) {
+  return libraryWrite(`exercise:${id ?? 'new'}`,v,async client => {
+    if (id) {
+      const previous = await requireRow(client,'SELECT * FROM exercises WHERE id=$1 FOR UPDATE',[id]);
+      checkRevision(previous,v.expected_revision);
+      const linked = (await client.query('SELECT t.* FROM template_exercises t JOIN workout_templates w ON w.id=t.template_id WHERE t.exercise_id=$1 AND NOT w.archived',[id])).rows;
+      if (linked.some(row => !compatibleTargets(v.measurement_type,row))) fail(409,'INCOMPATIBLE_TARGETS','Remove incompatible targets from linked workouts before changing this exercise type.');
+      return requireRow(client,`UPDATE exercises SET name=$2,equipment=$3,muscle_focus=$4,measurement_type=$5,revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *`,[id,v.name,v.equipment,v.muscle_focus,v.measurement_type]);
+    }
+    return (await client.query(`INSERT INTO exercises(name,equipment,muscle_focus,measurement_type) VALUES($1,$2,$3,$4) RETURNING *`,[v.name,v.equipment,v.muscle_focus,v.measurement_type])).rows[0];
+  });
+}
+trainingRouter.post('/exercises', async (req,res) => { res.status(201).json(await saveExercise(undefined,exerciseInput.parse(req.body))); });
+trainingRouter.put('/exercises/:id', async (req,res) => { res.json(await saveExercise(uuid.parse(req.params.id),exerciseInput.parse(req.body))); });
+trainingRouter.delete('/exercises/:id', async (req,res) => {
+  const id = uuid.parse(req.params.id),v = z.object(writeMetadata).strict().parse(req.body ?? {});
+  await transaction(async client => {
+    const row = await requireRow(client,'SELECT * FROM exercises WHERE id=$1 FOR UPDATE',[id]);
+    if (row.archived) return;
+    checkRevision(row,v.expected_revision);
+    if ((await client.query('SELECT 1 FROM template_exercises t JOIN workout_templates w ON w.id=t.template_id WHERE t.exercise_id=$1 AND NOT w.archived LIMIT 1',[id])).rowCount) fail(409,'IN_USE','Remove this exercise from active library workouts, or archive those workouts first.');
+    await client.query('UPDATE exercises SET archived=true,revision=revision+1,updated_at=now() WHERE id=$1',[id]);
+  });res.status(204).end();
 });
 trainingRouter.get('/workout-templates', async (_req, res) => {
   res.json((await pool.query('SELECT * FROM workout_templates WHERE NOT archived ORDER BY name')).rows);
 });
 trainingRouter.get('/workout-templates/:id', async (req, res) => { res.json(await templateDetail(uuid.parse(req.params.id))); });
 async function saveTemplate(id: string | undefined, v: z.infer<typeof templateInput>) {
-  return transaction(async client => {
-    const row = id ? await requireRow(client, `UPDATE workout_templates SET name=$2,description=$3,updated_at=now() WHERE id=$1 RETURNING *`, [id,v.name,v.description])
+  return libraryWrite(`template:${id ?? 'new'}`,v,async client => {
+    if (id) checkRevision(await requireRow(client,'SELECT * FROM workout_templates WHERE id=$1 FOR UPDATE',[id]),v.expected_revision);
+    const row = id ? await requireRow(client, `UPDATE workout_templates SET name=$2,description=$3,revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *`, [id,v.name,v.description])
       : (await client.query('INSERT INTO workout_templates(name,description) VALUES($1,$2) RETURNING *', [v.name,v.description])).rows[0];
     await client.query('DELETE FROM template_exercises WHERE template_id=$1', [row.id]);
     for (const [position, e] of v.exercises.entries()) {
-      await requireRow(client, 'SELECT id FROM exercises WHERE id=$1 AND NOT archived FOR SHARE', [e.exercise_id]);
-      await client.query(`INSERT INTO template_exercises(template_id,exercise_id,position,prescription,rest_seconds)
-        VALUES($1,$2,$3,$4,$5)`, [row.id,e.exercise_id,position,e.prescription,e.rest_seconds]);
+      const exercise = await requireRow(client, 'SELECT * FROM exercises WHERE id=$1 AND NOT archived FOR SHARE', [e.exercise_id]);
+      if (!compatibleTargets(exercise.measurement_type,e)) fail(400,'INCOMPATIBLE_TARGETS','Workout targets must match the exercise measurement type.');
+      await client.query(`INSERT INTO template_exercises(template_id,exercise_id,position,prescription,rest_seconds,target_sets,target_reps,target_weight_kg,target_duration_seconds,target_distance_meters)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [row.id,e.exercise_id,position,e.prescription,e.rest_seconds,e.target_sets ?? null,e.target_reps ?? null,e.target_weight_kg ?? null,e.target_duration_seconds ?? null,e.target_distance_meters ?? null]);
     }
     return templateDetail(row.id, client);
   });
 }
 trainingRouter.post('/workout-templates', async (req, res) => { res.status(201).json(await saveTemplate(undefined,templateInput.parse(req.body))); });
 trainingRouter.put('/workout-templates/:id', async (req, res) => { res.json(await saveTemplate(uuid.parse(req.params.id),templateInput.parse(req.body))); });
-trainingRouter.delete('/workout-templates/:id', async (req, res) => {
-  await requireRow(pool, 'UPDATE workout_templates SET archived=true,updated_at=now() WHERE id=$1 RETURNING id', [uuid.parse(req.params.id)]);
-  res.status(204).end();
+trainingRouter.delete('/workout-templates/:id', async (req,res) => {
+  const id = uuid.parse(req.params.id),v = z.object(writeMetadata).strict().parse(req.body ?? {});
+  await transaction(async client => {
+    const row = await requireRow(client,'SELECT * FROM workout_templates WHERE id=$1 FOR UPDATE',[id]);
+    if (row.archived) return;
+    checkRevision(row,v.expected_revision);
+    if ((await client.query('SELECT 1 FROM program_schedule s JOIN programs p ON p.id=s.program_id WHERE s.template_id=$1 AND NOT p.archived LIMIT 1',[id])).rowCount) fail(409,'IN_USE','Remove this workout from library programs, or archive those programs first.');
+    await client.query('UPDATE workout_templates SET archived=true,revision=revision+1,updated_at=now() WHERE id=$1',[id]);
+  });res.status(204).end();
 });
 trainingRouter.get('/programs', async (_req, res) => { res.json((await pool.query('SELECT * FROM programs WHERE NOT archived ORDER BY name')).rows); });
 trainingRouter.get('/programs/:id', async (req, res) => { res.json(await programDetail(uuid.parse(req.params.id))); });
 async function saveProgram(id: string | undefined, v: z.infer<typeof programInput>) {
-  return transaction(async client => {
-    const row = id ? await requireRow(client, 'UPDATE programs SET name=$2,description=$3,weeks=$4,updated_at=now() WHERE id=$1 RETURNING *', [id,v.name,v.description,v.weeks])
+  return libraryWrite(`program:${id ?? 'new'}`,v,async client => {
+    if (id) checkRevision(await requireRow(client,'SELECT * FROM programs WHERE id=$1 FOR UPDATE',[id]),v.expected_revision);
+    const row = id ? await requireRow(client, 'UPDATE programs SET name=$2,description=$3,weeks=$4,revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *', [id,v.name,v.description,v.weeks])
       : (await client.query('INSERT INTO programs(name,description,weeks) VALUES($1,$2,$3) RETURNING *', [v.name,v.description,v.weeks])).rows[0];
     await client.query('DELETE FROM program_schedule WHERE program_id=$1', [row.id]);
     for (const s of v.schedule) {
@@ -123,7 +175,9 @@ trainingRouter.post('/programs', async (req, res) => { res.status(201).json(awai
 trainingRouter.put('/programs/:id', async (req, res) => { res.json(await saveProgram(uuid.parse(req.params.id),programInput.parse(req.body))); });
 trainingRouter.delete('/programs/:id', async (req, res) => {
   await transaction(async client => {
-    await requireRow(client, 'UPDATE programs SET archived=true,updated_at=now() WHERE id=$1 RETURNING id', [uuid.parse(req.params.id)]);
+    const id = uuid.parse(req.params.id),v = z.object(writeMetadata).strict().parse(req.body ?? {});
+    const row = await requireRow(client,'SELECT * FROM programs WHERE id=$1 FOR UPDATE',[id]);
+    if (!row.archived) { checkRevision(row,v.expected_revision); await client.query('UPDATE programs SET archived=true,revision=revision+1,updated_at=now() WHERE id=$1',[id]); }
     await client.query('UPDATE user_programs SET active=false,updated_at=now() WHERE program_id=$1', [req.params.id]);
   }); res.status(204).end();
 });
@@ -159,11 +213,12 @@ trainingRouter.post('/sessions', async (req, res) => {
       return { created: false, session: await sessionDetail(prior.id,client) };
     }
     await requireRow(client, 'SELECT id FROM workout_templates WHERE id=$1 AND NOT archived FOR SHARE', [v.template_id]);
+    await client.query('SELECT e.id FROM exercises e JOIN template_exercises t ON t.exercise_id=e.id WHERE t.template_id=$1 ORDER BY e.id FOR SHARE OF e',[v.template_id]);
     const template = await templateDetail(v.template_id,client);
     if (!template.exercises.length) fail(409,'EMPTY_TEMPLATE','Template has no exercises');
     const session = (await client.query(`INSERT INTO workout_sessions(template_id,template_name,operation_id) VALUES($1,$2,$3) RETURNING *`, [v.template_id,template.name,v.operation_id])).rows[0];
-    await client.query(`INSERT INTO session_exercises(session_id,exercise_id,name,measurement_type,prescription,rest_seconds,position)
-      SELECT $1,t.exercise_id,e.name,e.measurement_type,t.prescription,t.rest_seconds,t.position
+    await client.query(`INSERT INTO session_exercises(session_id,exercise_id,name,measurement_type,prescription,rest_seconds,position,target_sets,target_reps,target_weight_kg,target_duration_seconds,target_distance_meters)
+      SELECT $1,t.exercise_id,e.name,e.measurement_type,t.prescription,t.rest_seconds,t.position,t.target_sets,t.target_reps,t.target_weight_kg,t.target_duration_seconds,t.target_distance_meters
       FROM template_exercises t JOIN exercises e ON e.id=t.exercise_id WHERE t.template_id=$2`, [session.id,v.template_id]);
     return { created: true, session: await sessionDetail(session.id,client) };
   });
